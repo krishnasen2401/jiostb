@@ -1,6 +1,7 @@
 #Requires -RunAsAdministrator
 param(
-    [string]$AcsScript = 'mock_acs_universal.py'
+    [string]$AcsScript = 'mock_acs_universal.py',
+    [string]$Model = 'jms'
 )
 $ErrorActionPreference = 'Continue'
 if (-not $PSScriptRoot) {
@@ -154,10 +155,11 @@ New-NetFirewallRule -DisplayName 'LocalLab-Allow-Inbound-TCP' -Group 'LocalLab' 
 New-NetFirewallRule -DisplayName 'LocalLab-Allow-Inbound-ICMP' -Group 'LocalLab' -Direction Inbound -Action Allow -Protocol ICMPv4 -LocalAddress Any -RemoteAddress Any -Profile Any | Out-Null
 New-NetFirewallRule -DisplayName 'LocalLab-Isolate-Subnet' -Group 'LocalLab' -Direction Outbound -Action Block -Protocol Any -LocalAddress '192.168.50.0/24','49.44.112.10','142.250.190.46' -RemoteAddress '0.0.0.0-192.168.49.255','192.168.51.0-255.255.255.255' -Profile Any | Out-Null
 
+$env:STB_MODEL = $Model
 $python = (Get-Command python -ErrorAction Stop).Source
 $env:CAPTIVE_BIND_IP = '0.0.0.0'
-Write-Host "Starting Mock ACS Server ($AcsScript)..."
-Start-Process -FilePath (Join-Path $base 'scripts\run-acs-window.bat') -ArgumentList $AcsScript -WorkingDirectory $base
+Write-Host "Starting Mock ACS Server ($AcsScript --model $Model)..."
+Start-Process -FilePath (Join-Path $base 'scripts\run-acs-window.bat') -ArgumentList "$AcsScript --model $Model" -WorkingDirectory $base
 Write-Host ""
 Write-Host "==========================================================" -ForegroundColor Green
 Write-Host ">>> ACTION: POWER-CYCLE (REBOOT) THE JIO STB NOW! <<<" -ForegroundColor Yellow

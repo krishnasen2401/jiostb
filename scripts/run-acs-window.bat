@@ -7,7 +7,11 @@ if "%SCRIPT_NAME%"=="" set SCRIPT_NAME=mock_acs_universal.py
 echo ==========================================================
 echo Starting Mock ACS Server Console (%SCRIPT_NAME%)...
 echo ==========================================================
-python "%SCRIPT_NAME%"
+if "%~2"=="" (
+    python "%SCRIPT_NAME%"
+) else (
+    python %*
+)
 
 if %errorlevel% neq 0 (
     echo.

@@ -150,18 +150,34 @@ dKeELuqgFna+aS/D5vyg6b2BX31LX35n0WOqeklecMMv9FaGvSSjsBf7OEf51rCP
 tuABhXzyODVQ6JdLhzO3+6Jb
 -----END PRIVATE KEY-----"""
 
-# Certificate selection with automatic embedded RILROOTCA extraction:
-# acs_chain.pem contains CN=RILROOTCA matching HttpClient.pinningPublicKey on JMSD200A / JMSC200A
-CERT_FILE = os.path.join(BASE_DIR, "acs_chain.pem")
-if not os.path.exists(CERT_FILE):
-    # If acs_chain.pem is missing, extract our embedded valid RILROOTCA certificate
-    try:
-        with open(CERT_FILE, "w", encoding="utf-8") as f:
-            f.write(EMBEDDED_ACS_CHAIN)
-    except Exception:
-        # Fallback to forged_chain.pem if present
-        if os.path.exists(os.path.join(BASE_DIR, "forged_chain.pem")):
-            CERT_FILE = os.path.join(BASE_DIR, "forged_chain.pem")
+# Certificate selection (Dual Family Support: JMS vs JHS):
+# - JMS Series (JMSD200A, JMSC200A): Pins CN=RILROOTCA (acs_chain.pem)
+# - JHS Series (JHSD200, JHSC200): Validates via Android system store (forged_chain.pem eMudhra)
+import argparse
+_parser = argparse.ArgumentParser(add_help=False)
+_parser.add_argument("--cert", type=str, default=None)
+_parser.add_argument("--model", type=str, default="auto", choices=["auto", "jms", "jhs"])
+_cli_args, _ = _parser.parse_known_args()
+
+_model_env = os.environ.get("STB_MODEL", "auto").lower()
+TARGET_MODEL = _cli_args.model if _cli_args.model != "auto" else _model_env
+
+if _cli_args.cert and os.path.exists(_cli_args.cert):
+    CERT_FILE = os.path.abspath(_cli_args.cert)
+elif TARGET_MODEL == "jhs":
+    CERT_FILE = os.path.join(BASE_DIR, "forged_chain.pem")
+    if not os.path.exists(CERT_FILE):
+        CERT_FILE = os.path.join(BASE_DIR, "acs_chain.pem")
+else:
+    # Default: JMS series (acs_chain.pem with RILROOTCA)
+    CERT_FILE = os.path.join(BASE_DIR, "acs_chain.pem")
+    if not os.path.exists(CERT_FILE):
+        try:
+            with open(CERT_FILE, "w", encoding="utf-8") as f:
+                f.write(EMBEDDED_ACS_CHAIN)
+        except Exception:
+            if os.path.exists(os.path.join(BASE_DIR, "forged_chain.pem")):
+                CERT_FILE = os.path.join(BASE_DIR, "forged_chain.pem")
 PORTS = [443, 7443, 7547, 8080, 8443, 9443]
 BIND_ADDR = "0.0.0.0"
 
@@ -447,7 +463,10 @@ def handle(conn, addr):
         log(f"TLS fail {cid}: {type(e).__name__}: {e}")
         if "CERTIFICATE_UNKNOWN" in str(e):
             if srv_port in (8443, 9443, 7443, 7547):
-                log(f"{cid} [!] STB TR-069 client rejected certificate. Ensure 'acs_chain.pem' (RILROOTCA chain) is used, not legacy forged_chain.pem.")
+                if "forged_chain" in os.path.basename(CERT_FILE):
+                    log(f"{cid} [!] STB TR-069 rejected eMudhra cert. If this is a JMS box (JMSD200A/JMSC200A), run in JMS mode ('acs_chain.pem' RILROOTCA)!")
+                else:
+                    log(f"{cid} [!] STB TR-069 rejected RILROOTCA cert. If this is a JHS box (JHSD200/JHSC200), run in JHS mode ('forged_chain.pem' eMudhra)!")
             else:
                 log(f"{cid} (Normal: 3rd-party Android app hit HTTPS port {srv_port}. Waiting for TR-069 on 8443/9443...)")
         try: conn.close()
@@ -743,6 +762,9 @@ def main():
         log("==========================================================")
         log("  Jio STB Universal Mock ACS (Relay + Standalone Dual)    ")
         log(f"  Packet Log: {PACKET_LOG_FILE}")
+        
+        log(f"  Target STB Family: {TARGET_MODEL.upper()} Series")
+        log(f"  Active Certificate: {os.path.basename(CERT_FILE)}")
         
         # Test upstream connectivity to Real Jio ACS
         log("  Checking upstream connectivity to Real Jio ACS (49.40.134.113:8443)...")

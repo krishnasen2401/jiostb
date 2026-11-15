@@ -1,6 +1,7 @@
 #Requires -RunAsAdministrator
 param(
-    [string]$AcsScript = 'mock_acs_universal.py'
+    [string]$AcsScript = 'mock_acs_universal.py',
+    [string]$Model = 'jms'
 )
 $ErrorActionPreference = 'Continue'
 $base = Split-Path -Parent $PSScriptRoot
@@ -143,8 +144,9 @@ Write-Host "[5/5] Launching Mock ACS Server ($AcsScript) and Captive Lab..." -Fo
 $python = (Get-Command python -ErrorAction Stop).Source
 $env:CAPTIVE_BIND_IP = '0.0.0.0'
 
+$env:STB_MODEL = $Model
 # Start selected mock ACS script in a separate console window so logs are clearly visible
-Start-Process -FilePath (Join-Path $base 'scripts\run-acs-window.bat') -ArgumentList $AcsScript -WorkingDirectory $base
+Start-Process -FilePath (Join-Path $base 'scripts\run-acs-window.bat') -ArgumentList "$AcsScript --model $Model" -WorkingDirectory $base
 
 Write-Host "`n>>> Starting captive_wifi_lab.py..." -ForegroundColor Cyan
 & $python (Join-Path $base 'captive_wifi_lab.py')

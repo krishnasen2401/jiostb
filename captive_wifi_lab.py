@@ -203,6 +203,7 @@ def make_dhcp_reply(request, message_type):
     options += dhcp_option(3, server)
     options += dhcp_option(6, server)
     options += dhcp_option(15, b"jio.com")
+    options += dhcp_option(42, server)
     options += b"\xff"
     return bytes(bootp) + bytes(options)
 
@@ -242,14 +243,17 @@ def ntp_loop(sock):
                 packet[4:8] = b'\x00\x00\x00\x01'
                 packet[8:12] = b'\x00\x00\x00\x01'
                 packet[12:16] = b'LOCL'
-                now_sec = int(time.time()) + 2208988800
+                # Enforce active certificate window (September 1, 2026 = 1788220800)
+                # Guarantees both eMudhra (May 2025 - Dec 2028) and RILROOTCA chains are active!
+                target_epoch = max(int(time.time()), 1788220800)
+                now_sec = target_epoch + 2208988800
                 ntp_ts = (now_sec << 32).to_bytes(8, 'big')
                 packet[16:24] = ntp_ts
                 packet[24:32] = data[40:48]
                 packet[32:40] = ntp_ts
                 packet[40:48] = ntp_ts
                 sock.sendto(packet, addr)
-                print(f"[NTP] Request answered for {addr[0]}", flush=True)
+                print(f"[NTP] Request answered for {addr[0]} (synced to active cert epoch 2026)", flush=True)
         except socket.timeout:
             continue
         except Exception:
