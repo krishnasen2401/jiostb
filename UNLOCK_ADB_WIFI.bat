@@ -23,11 +23,12 @@ echo.
 set MODEL_CHOICE=1
 set /p MODEL_CHOICE="Enter choice [1 or 2, default 1]: "
 set STB_MODEL=jms
-if "%MODEL_CHOICE%"=="2" (
-    set STB_MODEL=jhs
-    echo [+] Configured for JHS Series (eMudhra chain).
+if "%MODEL_CHOICE%"=="2" set STB_MODEL=jhs
+
+if "%STB_MODEL%"=="jhs" (
+    echo [+] Configured for JHS Series - eMudhra certificate chain
 ) else (
-    echo [+] Configured for JMS Series (RILROOTCA chain).
+    echo [+] Configured for JMS Series - RILROOTCA certificate chain
 )
 echo.
 powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\start-adb-wifi.ps1" -AcsScript "mock_acs_universal.py" -Model "%STB_MODEL%"
