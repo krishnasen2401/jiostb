@@ -89,47 +89,59 @@ if ($qhProcesses -or $qhServices) {
 Write-Host "Detecting Ethernet / USB-to-Ethernet Adapter..."
 $adapter = $null
 
-# Priority 1: USB-to-Ethernet dongles (Realtek USB, ASIX, TP-Link, etc.)
-$usbAdapters = Get-NetAdapter -ErrorAction SilentlyContinue | Where-Object {
+$allEthernetAdapters = @(Get-NetAdapter -ErrorAction SilentlyContinue | Where-Object {
     $_.PhysicalMediaType -ne 'Native 802.11' -and
     $_.PhysicalMediaType -ne 'BlueTooth' -and
     $_.MediaType -ne 'Native 802.11' -and
-    $_.InterfaceDescription -match 'USB|AX88|RTL815|LAN7500|Realtek.*USB|ASIX|Ethernet.*Adapter|Dongle' -and
-    $_.InterfaceDescription -notmatch 'Virtual|Hyper-V|Loopback|TAP|VPN|Host-Only|Bluetooth|Wi-Fi|Wireless|Direct' -and
+    $_.InterfaceDescription -notmatch 'Virtual|Hyper-V|Loopback|TAP|VPN|Host-Only|Bluetooth|Wi-Fi|Wireless|Direct|Tunnel|Tailscale' -and
     $_.Status -ne 'Disabled'
-}
-if ($usbAdapters) {
-    $adapter = $usbAdapters | Select-Object -First 1
-    Write-Host "[+] Found USB-to-Ethernet Adapter: $($adapter.Name) ($($adapter.InterfaceDescription))" -ForegroundColor Green
-}
+})
 
-# Priority 2: Named Ethernet adapter or "Ethernet*"
-if (-not $adapter) {
-    $adapter = Get-NetAdapter -ErrorAction SilentlyContinue | Where-Object {
-        $_.Name -like "$adapterName*" -and
-        $_.PhysicalMediaType -ne 'Native 802.11' -and
-        $_.PhysicalMediaType -ne 'BlueTooth' -and
-        $_.MediaType -ne 'Native 802.11' -and
-        $_.InterfaceDescription -notmatch 'Virtual|Hyper-V|Loopback|TAP|VPN|Host-Only|Bluetooth|Wi-Fi|Wireless|Direct' -and
-        $_.Status -ne 'Disabled'
-    } | Select-Object -First 1
-}
-
-# Priority 3: Any physical wired Ethernet adapter (never Wi-Fi or Bluetooth)
-if (-not $adapter) {
-    $adapter = Get-NetAdapter -ErrorAction SilentlyContinue | Where-Object {
-        $_.PhysicalMediaType -ne 'Native 802.11' -and
-        $_.PhysicalMediaType -ne 'BlueTooth' -and
-        $_.MediaType -ne 'Native 802.11' -and
-        $_.InterfaceDescription -notmatch 'Virtual|Hyper-V|Loopback|TAP|VPN|Host-Only|Bluetooth|Wi-Fi|Wireless|Direct|Tunnel|Tailscale' -and
-        $_.Status -ne 'Disabled'
-    } | Select-Object -First 1
-}
-
-if (-not $adapter) {
+if ($allEthernetAdapters.Count -eq 0) {
     Write-Host "[!] ERROR: No wired or USB-to-Ethernet adapter found!" -ForegroundColor Red
     Write-Host "    Please connect your USB-to-Ethernet adapter or Ethernet cable and re-run." -ForegroundColor Yellow
+    Read-Host "Press Enter to exit..."
     exit 1
+} elseif ($allEthernetAdapters.Count -eq 1) {
+    $adapter = $allEthernetAdapters[0]
+    Write-Host "[+] Automatically selected Ethernet Adapter: $($adapter.Name) ($($adapter.InterfaceDescription)) - Status: $($adapter.Status)" -ForegroundColor Green
+} else {
+    Write-Host ""
+    Write-Host "==========================================================" -ForegroundColor Cyan
+    Write-Host "Multiple Ethernet adapters detected ($($allEthernetAdapters.Count) found):" -ForegroundColor Cyan
+    Write-Host "==========================================================" -ForegroundColor Cyan
+    
+    # Priority: Prefer adapter that has a cable plugged in (Status == 'Up')
+    $defaultIdx = 0
+    for ($i = 0; $i -lt $allEthernetAdapters.Count; $i++) {
+        if ($allEthernetAdapters[$i].Status -eq 'Up') {
+            $defaultIdx = $i
+            break
+        } elseif ($allEthernetAdapters[$i].InterfaceDescription -match 'USB|AX88|RTL815|ASIX|Dongle') {
+            $defaultIdx = $i
+        }
+    }
+    
+    for ($i = 0; $i -lt $allEthernetAdapters.Count; $i++) {
+        $a = $allEthernetAdapters[$i]
+        $rec = if ($i -eq $defaultIdx) { " [RECOMMENDED]" } else { "" }
+        $stat = if ($a.Status -eq 'Up') { "Up (Cable Connected)" } else { $a.Status }
+        Write-Host "  [$($i+1)] $($a.Name) ($($a.InterfaceDescription)) - $stat$rec"
+    }
+    Write-Host ""
+    $prompt = "Select adapter connected to your Jio STB [1-$($allEthernetAdapters.Count), default $($defaultIdx+1)]: "
+    $choice = Read-Host $prompt
+    if (-not $choice -or -not ($choice -match '^\d+$')) {
+        $adapter = $allEthernetAdapters[$defaultIdx]
+    } else {
+        $sel = [int]$choice - 1
+        if ($sel -ge 0 -and $sel -lt $allEthernetAdapters.Count) {
+            $adapter = $allEthernetAdapters[$sel]
+        } else {
+            $adapter = $allEthernetAdapters[$defaultIdx]
+        }
+    }
+    Write-Host "[+] Selected Ethernet Adapter: $($adapter.Name) ($($adapter.InterfaceDescription))`n" -ForegroundColor Green
 }
 
 $adapterName = $adapter.Name

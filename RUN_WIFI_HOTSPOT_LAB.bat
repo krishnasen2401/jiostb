@@ -14,5 +14,5 @@ if %errorLevel% == 0 (
     powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\start-wifi-lab.ps1"
 ) else (
     echo [i] Requesting Administrator Privileges...
-    powershell.exe -NoProfile -Command "Start-Process cmd.exe -ArgumentList '/c \"\"%~f0\"\"' -Verb RunAs"
+    powershell.exe -NoProfile -Command "Start-Process cmd.exe -ArgumentList '/k \"\"%~f0\"\"' -Verb RunAs"
 )
