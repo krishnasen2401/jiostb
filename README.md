@@ -1,5 +1,15 @@
 # Jio STB Master Toolkit (ADB Unlock, FOTA Capture & Firmware Catalog)
 
+<p align="center">
+  <a href="https://github.com/krishnasen2401/jiostb/stargazers"><img src="https://img.shields.io/github/stars/krishnasen2401/jiostb?style=for-the-badge&logo=github&color=gold" alt="GitHub Stars"></a>
+  <a href="https://github.com/krishnasen2401/jiostb/network/members"><img src="https://img.shields.io/github/forks/krishnasen2401/jiostb?style=for-the-badge&logo=github&color=blue" alt="GitHub Forks"></a>
+  <a href="https://github.com/krishnasen2401/jiostb/issues"><img src="https://img.shields.io/github/issues/krishnasen2401/jiostb?style=for-the-badge&color=red" alt="GitHub Issues"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green.svg?style=for-the-badge" alt="License"></a>
+</p>
+
+> ⭐ **If this project helped unlock, debloat, or revive your Jio STB, please support us by starring this repository on GitHub!**  
+> Starring helps more users discover this open-source tool, prevents paywalled scam services, and fuels continuous firmware research and development.
+
 A complete, production-grade toolkit to **unlock permanent ADB**, **debloat & customize**, **intercept & capture official firmware updates**, and **query Reliance Jio's live TR-069 ACS**.
 
 Supports all hardware generations of Reliance Jio Set-Top Boxes (**JHS D200 v1/v2/v5**, **JHS C200**, **JMSB200A**, **JMSD200A**) via both **Direct P2P Ethernet** and **Wi-Fi Mobile Hotspot**.

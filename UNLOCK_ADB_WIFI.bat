@@ -12,6 +12,9 @@ if %errorlevel% neq 0 exit /b 1
 echo ==========================================================
 echo Starting Jio STB Wi-Fi Hotspot ADB Unlock Lab (Universal)
 echo ==========================================================
+echo [*] If this tool helps you, please star our GitHub repo:
+echo     https://github.com/krishnasen2401/jiostb
+echo ==========================================================
 echo.
 echo Select your Jio STB Model Family:
 echo   [1] JMS Series: JMSD200A / JMSC200A / AirFiber (JioOS 1.x / SDMC) [DEFAULT]
