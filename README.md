@@ -43,6 +43,25 @@ All firmware images listed below are directly hosted on Reliance Jio's public Ak
 
 ---
 
+## 📥 Downloading & Running the Toolkit
+
+### Recommended: Clone via Git (Bypasses Windows Defender SmartScreen)
+If you download the repository as a `.zip` from GitHub, Windows Defender or SmartScreen may flag it as a generic false-positive (e.g., `Trojan:Script/Wacatac.B!ml`). This happens because the ZIP contains automated administrative batch scripts (`.bat` / `.ps1`) that reconfigure network adapters, bind local ports (53, 8443), and bundle Android tools (`adb.exe`).
+
+To avoid download blocks completely, clone directly using Git:
+```bash
+git clone https://github.com/krishnasen2401/jiostb.git
+cd jiostb
+```
+
+> [!TIP]
+> **If Downloading the ZIP Archive Directly in Edge / Chrome:**
+> * **Edge:** In the download tray, click `...` next to the blocked file $\to$ **Keep** $\to$ **Show more** $\to$ **Keep anyway**.
+> * **Chrome:** Press `Ctrl + J` $\to$ Click **Keep dangerous file** $\to$ **Keep anyway**.
+> * **Windows Security:** Go to *Windows Security $\to$ Virus & threat protection $\to$ Protection history $\to$ Click detection $\to$ Actions $\to$ Allow on device*.
+
+---
+
 ## 🚀 1-Click Launchers
 
 > [!TIP]
