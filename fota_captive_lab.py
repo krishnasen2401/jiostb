@@ -202,11 +202,11 @@ def handle_http_portal(conn, addr):
             req_line = raw.decode("latin1", errors="replace").split("\r\n")[0]
             if "/ftth/v1/network/check" in req_line:
                 token = _forge_netcheck()
-                body = f'{{"response":"{token}"}}'.encode("utf-8")
+                body = f'{{"Network":"{token}"}}'.encode("utf-8")
                 resp = (
                     b"HTTP/1.1 200 OK\r\n"
                     b"Content-Type: application/json\r\n"
-                    f"Content-Length: {len(body)}\r\n".encode() +
+                    b"Content-Length: " + str(len(body)).encode("ascii") + b"\r\n"
                     b"Connection: close\r\n\r\n" + body
                 )
                 conn.sendall(resp)
