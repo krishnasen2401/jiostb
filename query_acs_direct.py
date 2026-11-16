@@ -167,6 +167,12 @@ def main():
 
     except Exception as e:
         print(f"[-] Connection Error: {e}")
+        print("\n[!] TROUBLESHOOTING:")
+        print("    1. Jio's ACS (49.40.134.113:8443) is an internal Jio network endpoint.")
+        print("       It is only reachable through an active JioFiber internet connection.")
+        print("    2. If your PC is directly connected to the STB via an isolated Ethernet cable (192.168.50.1),")
+        print("       your PC cannot route to 49.40.134.113.")
+        print("    3. Remember: You DO NOT need this tool to unlock ADB! Run UNLOCK_ADB_ETHERNET.bat instead.")
 
 if __name__ == "__main__":
     main()

@@ -99,6 +99,13 @@ cd jiostb
    adb connect 192.168.50.2:5555
    ```
 
+> [!NOTE]
+> **Understanding Background Port 443 TLS Alerts:**
+> While waiting for TR-069, background apps on the STB (Google Play services, analytics, ad engines) probe the captive network on port 443 with standard public CAs (`SSLV3_ALERT_CERTIFICATE_UNKNOWN`). In the latest toolkit update, this port 443 noise is automatically silenced from your console (logged quietly in `mock_acs.log`), and a prominent **`🎉 SUCCESS: JIO STB ADB IS FULLY UNLOCKED!`** banner will display the moment the STB accepts the TR-069 command on port 8443 / 9443!
+>
+> **Do I need `QUERY_JIO_ACS.bat`?**
+> No! `QUERY_JIO_ACS.bat` is an advanced cloud-research tool for querying Jio's remote servers across an active JioFiber WAN. It is **not** used for unlocking local STBs. All local unlocks use `UNLOCK_ADB_ETHERNET.bat` or `UNLOCK_ADB_WIFI.bat`.
+
 #### B. Wi-Fi Hotspot Mode (For PCs without Ethernet)
 1. Open Windows Settings $\to$ **Network & internet** $\to$ **Mobile hotspot**.
 2. Configure SSID: `JioSTB-Setup`, Password: `password123`, Band: **2.4 GHz**.

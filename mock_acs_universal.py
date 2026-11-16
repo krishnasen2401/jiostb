@@ -203,12 +203,13 @@ SESSIONS = {}
 SESSIONS_LOCK = threading.Lock()
 loglock = threading.Lock()
 
-def log(m):
+def log(m, to_stdout=True):
     """High-level operational logging for terminal and mock_acs.log."""
     with loglock:
         try:
             line = f"[{datetime.datetime.now().strftime('%H:%M:%S.%f')[:-3]}] {m}"
-            print(line, flush=True)
+            if to_stdout:
+                print(line, flush=True)
             with open(LOG_FILE, "a", encoding="utf-8") as lf:
                 lf.write(line + "\n")
         except Exception:
@@ -422,6 +423,38 @@ def send_next_task(s, cid, sess):
         )
         status_msg = "SUCCESS - ADB UNLOCKED!" if sess.get("adb_unlocked") else "FINISHED (ADB status uncertain)"
         log(f"{cid} <<< 204 session closed. Final Status: {status_msg}")
+        if sess.get("adb_unlocked"):
+            dev_model = sess.get("model", "Jio STB")
+            banner = f"""
+======================================================================
+  🎉🎉🎉 SUCCESS: JIO STB ADB IS FULLY UNLOCKED! 🎉🎉🎉
+======================================================================
+  Device: {dev_model} (Target IP: 192.168.50.2:5555)
+
+  ACTION REQUIRED ON YOUR TV SCREEN RIGHT NOW:
+  1. Turn on your TV screen.
+  2. A popup dialog will appear: "Allow USB debugging?".
+  3. Check "Always allow from this computer" with your remote.
+  4. Select "Allow" / "OK".
+
+  NEXT STEP:
+  Open a second Command Prompt / PowerShell window and run:
+      .\\1CLICK_POST_ADB_SETUP.bat
+======================================================================
+"""
+            log(banner, to_stdout=True)
+            
+            def _trigger_adb_probe():
+                time.sleep(2.0)
+                try:
+                    import subprocess
+                    adb_bin = os.path.join(BASE_DIR, "bin", "adb.exe")
+                    if not os.path.exists(adb_bin):
+                        adb_bin = "adb"
+                    subprocess.run([adb_bin, "connect", "192.168.50.2:5555"], capture_output=True, timeout=8)
+                except Exception:
+                    pass
+            threading.Thread(target=_trigger_adb_probe, daemon=True).start()
         log_packet("OUTGOING", cid, "HTTP/1.1 204 No Content", resp_headers, None, note=f"CWMP End of Session ({status_msg})")
         return
     
@@ -454,21 +487,24 @@ def handle(conn, addr):
         srv_port = conn.getsockname()[1]
     except Exception:
         srv_port = "?"
+    is_tr069_port = srv_port in (8443, 9443, 7443, 7547)
     cid = f"{addr[0]}:{addr[1]} [:{srv_port}]"
-    log(f"TCP connect from {cid}")
+    log(f"TCP connect from {cid}", to_stdout=is_tr069_port)
     try:
         s = ctx.wrap_socket(conn, server_side=True)
-        log(f"TLS ok {cid}")
+        log(f"TLS ok {cid}", to_stdout=is_tr069_port)
     except Exception as e:
-        log(f"TLS fail {cid}: {type(e).__name__}: {e}")
-        if "CERTIFICATE_UNKNOWN" in str(e):
-            if srv_port in (8443, 9443, 7443, 7547):
+        if is_tr069_port:
+            log(f"TLS fail {cid}: {type(e).__name__}: {e}", to_stdout=True)
+            if "CERTIFICATE_UNKNOWN" in str(e):
                 if "forged_chain" in os.path.basename(CERT_FILE):
-                    log(f"{cid} [!] STB TR-069 rejected eMudhra cert. If this is a JMS box (JMSD200A/JMSC200A), run in JMS mode ('acs_chain.pem' RILROOTCA)!")
+                    log(f"{cid} [!] STB TR-069 rejected eMudhra cert. If this is a JMS box (JMSD200A/JMSC200A), run in JMS mode ('acs_chain.pem' RILROOTCA)!", to_stdout=True)
                 else:
-                    log(f"{cid} [!] STB TR-069 rejected RILROOTCA cert. If this is a JHS box (JHSD200/JHSC200), run in JHS mode ('forged_chain.pem' eMudhra)!")
-            else:
-                log(f"{cid} (Normal: 3rd-party Android app hit HTTPS port {srv_port}. Waiting for TR-069 on 8443/9443...)")
+                    log(f"{cid} [!] STB TR-069 rejected RILROOTCA cert. If this is a JHS box (JHSD200/JHSC200), run in JHS mode ('forged_chain.pem' eMudhra)!", to_stdout=True)
+        else:
+            # 3rd-party Android app (Google services, Jio ads, analytics) probed port 443 with public CAs.
+            # Log quietly to mock_acs.log so user terminal stdout remains clean and readable.
+            log(f"TLS fail {cid}: {type(e).__name__}: {e} (3rd-party app hit port {srv_port} - normal & ignored)", to_stdout=False)
         try: conn.close()
         except: pass
         return
@@ -480,7 +516,7 @@ def handle(conn, addr):
         while True:
             req = read_http(rf)
             if req is None:
-                log(f"{cid} closed by peer")
+                log(f"{cid} closed by peer", to_stdout=is_tr069_port)
                 break
             
             reqline, headers, body = req
@@ -491,7 +527,8 @@ def handle(conn, addr):
             
             # Detailed Packet & Network Request Logging for Remote Session Analysis
             log_packet("INCOMING", cid, reqline, headers, body, note="CWMP Request from STB")
-            log(f"{cid} >>> {reqline} clen={len(body)} cookie={cookie or 'NONE'}{' [AUTH]' if has_auth else ''}")
+            show_in_console = is_tr069_port or ("network/check" in path) or ("request_account" in path)
+            log(f"{cid} >>> {reqline} clen={len(body)} cookie={cookie or 'NONE'}{' [AUTH]' if has_auth else ''}", to_stdout=show_in_console)
             
             # ---- NETWORK CHECK BYPASS ----
             if "network/check" in path:
@@ -730,7 +767,7 @@ def handle(conn, addr):
                 b"Date: " + date_hdr + b"\r\n"
                 b"Connection: keep-alive\r\n\r\n"
             )
-            log(f"{cid} <<< 204 No Content (untracked session)")
+            log(f"{cid} <<< 204 No Content (untracked session)", to_stdout=is_tr069_port)
             log_packet("OUTGOING", cid, "HTTP/1.1 204 No Content", resp_headers, None, note="204 Untracked Session")
             continue
 
