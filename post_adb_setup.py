@@ -26,32 +26,39 @@ MANUFACTURER_KEYS = {
 
 # Essential bloatware to disable/freeze (Safe for all models)
 SAFE_DEBLOAT_PACKAGES = [
-    # Iwedia OTA updaters (Freezes background OTAs)
+    # Iwedia OTA updaters (Freezes background OTAs on JHS series)
     "com.iwedia.updateservice",
     "com.iwedia.httpupdate",
     "com.iwedia.pvodupdateservice",
     "com.iwedia.updatercuotaservice",
+    # Jio FOTA updaters (Freezes background OTAs on JMS series)
+    "com.jio.httpupdate",
+    "com.jio.usbupdate",
     # Jio Ads & Content injection
     "com.jio.stbadservice",
     "com.jio.bioscopecontentservice",
     "com.jio.screensaver",
     # Telemetry, trackers & background schedulers
     "com.jio.jiobackgroundscheduler",
+    "com.jio.backgroundscheduler",
     "com.jio.appoptimizer",
     "com.jio.adc.embedded",
     "com.jio.adc.aka",
     "com.jio.systemstats",
     "com.rjil.jiostblogservice",
     "com.jio.stb.remotediagnose",
-    "com.jio.store",
     "com.jio.universalsetup",
     "com.netflix.partnertoken",
+    # NOTE: com.jio.store is intentionally EXCLUDED from debloat
+    # because Jio STBs lack Google Play Services (GMS). JioStore provides
+    # official GMS-independent builds of Zee5, SonyLIV, SunNXT, etc.
 ]
 
-# Packages that must NEVER be disabled on JHS boxes
+# Packages that must NEVER be disabled on JHS/JMS boxes
 PROTECTED_PACKAGES = [
     "com.jio.tr069client",       # Keeps TCP 5555 ADB alive on boot!
     "com.media.jio.sso.stb",     # Required for JioTV+ & LiveTV login!
+    "com.jio.store",             # Required for non-GMS TV apps (Zee5, SonyLIV)!
 ]
 
 def get_adb_binary():
@@ -142,7 +149,13 @@ def step_debloat():
     # Clear OTA download caches
     run_adb_shell("pm clear com.iwedia.httpupdate")
     run_adb_shell("pm clear com.iwedia.updateservice")
+    run_adb_shell("pm clear com.jio.httpupdate")
+    run_adb_shell("pm clear com.jio.usbupdate")
     print("[+] OTA Updaters frozen. Your box will NEVER auto-update or lose ADB!")
+
+    # Preserve and re-enable JioStore (required for GMS-independent TV apps)
+    run_adb_shell("pm enable com.jio.store")
+    print("[+] JioStore preserved/active (Required for official non-GMS Zee5, SonyLIV, SunNXT).")
 
 def step_install_apks():
     print("\n" + "=" * 60)
@@ -193,27 +206,40 @@ def step_configure_launcher():
     print("  STEP 3: Configuring Default Launcher & Bypassing PMS Reboot Bug")
     print("=" * 60)
 
+    print("\n  Select your preferred default launcher:")
+    print("    [1] Projectivy Launcher (Recommended - Premium Leanback UI, Channels & Up Next)")
+    print("    [2] Monet Launcher (Lightweight Minimalist Material UI)")
+    print("    [3] Keep Current Launcher (Skip)")
+    choice = input("  Enter choice [1, 2, or 3, default 1]: ").strip()
+
+    if choice == "3":
+        print("  [*] Keeping current launcher configuration.")
+        return "com.spocky.projengmenu"
+
     print("  [*] Applying persistent PMS bypass for stock launcher...")
     # Jio PMS Relax SCAN_REQUIRE_KNOWN re-enables disabled apps on reboot.
     # Uninstalling for user 0 permanently removes it while keeping APK in /system!
     run_adb_shell("pm uninstall --user 0 com.iwedia.ui.rjio.launcher.reliance")
 
-    print("\n  Select your preferred default launcher:")
-    print("    [1] Projectivy Launcher (Recommended - Premium Leanback UI, Channels & Up Next)")
-    print("    [2] Monet Launcher (Lightweight Minimalist Material UI)")
-    choice = input("  Enter choice [1 or 2, default 1]: ").strip()
-
     if choice == "2":
         launcher_pkg = "com.klevico.monet"
         print("  [*] Setting Monet Launcher as default Home activity...")
         run_adb_shell("cmd package set-home-activity com.klevico.monet/.HomeActivity")
-        print("[+] Monet Launcher activated and locked across reboots!")
+        run_adb_shell("pm grant com.klevico.monet android.permission.WRITE_SECURE_SETTINGS")
+        run_adb_shell("settings put secure enabled_accessibility_services com.klevico.monet/.LauncherAccessibilityService")
+        run_adb_shell("settings put secure accessibility_enabled 1")
+        run_adb_shell("am start -n com.klevico.monet/.HomeActivity")
+        print("[+] Monet Launcher activated and running on TV screen!")
     else:
         launcher_pkg = "com.spocky.projengmenu"
         print("  [*] Setting Projectivy Launcher as default Home activity...")
         run_adb_shell("cmd package set-home-activity com.spocky.projengmenu/.ui.home.MainActivity")
+        run_adb_shell("pm grant com.spocky.projengmenu android.permission.WRITE_SECURE_SETTINGS")
+        run_adb_shell("appops set com.spocky.projengmenu SYSTEM_ALERT_WINDOW allow")
         run_adb_shell("settings put secure enabled_accessibility_services com.spocky.projengmenu/.services.ProjectivyAccessibilityService")
-        print("[+] Projectivy Launcher activated and locked across reboots!")
+        run_adb_shell("settings put secure accessibility_enabled 1")
+        run_adb_shell("am start -n com.spocky.projengmenu/.ui.home.MainActivity")
+        print("[+] Projectivy Launcher activated and running on TV screen!")
 
     run_adb_shell("am force-stop com.iwedia.ui.rjio.launcher.reliance")
     return launcher_pkg
@@ -300,6 +326,39 @@ def step_save_credentials(dev_info):
     print(f"[+] Derived Password ({dev_info['vendor']}): {pw}")
     print("[+] You can now query Jio ACS directly anytime via QUERY_JIO_ACS.bat!")
 
+def step_manage_jiostore_apps():
+    print("\n" + "=" * 60)
+    print("  JIOSTORE & NON-GMS APP MANAGEMENT (Zee5, SonyLIV, Hotstar)")
+    print("=" * 60)
+    print("  Why generic APKs crash on Jio STB:")
+    print("  * Jio STBs run AOSP without Google Play Services (GMS).")
+    print("  * Generic TV APKs from APKMirror/Play Store crash on boot")
+    print("    because they look for 'com.google.android.gms' APIs.")
+    print("  * The official builds distributed through JioStore ('com.jio.store')")
+    print("    are customized specifically for Jio STB to run 100% without GMS!")
+    print("\n  Actions Available:")
+    print("  [1] Enable & Launch JioStore on TV (Recommended)")
+    print("      (Opens JioStore so you can install official non-GMS Zee5, SonyLIV, etc.)")
+    print("  [2] Enable JioStore in Background (Keep enabled without opening)")
+    print("  [3] Disable JioStore (If you don't want JioStore running)")
+    print("  [4] Return to Main Menu")
+
+    sub_choice = input("\nEnter choice [1-4, default: 1]: ").strip()
+    if not sub_choice or sub_choice == "1":
+        print("  [*] Enabling com.jio.store...")
+        run_adb_shell("pm enable com.jio.store")
+        print("  [*] Launching JioStore on TV screen...")
+        run_adb_shell("am start -n com.jio.store/.MainActivity")
+        print("[+] JioStore launched on your TV! You can now install official TV apps.")
+    elif sub_choice == "2":
+        run_adb_shell("pm enable com.jio.store")
+        print("[+] JioStore enabled.")
+    elif sub_choice == "3":
+        run_adb_shell("pm disable-user --user 0 com.jio.store")
+        print("[+] JioStore disabled.")
+    else:
+        print("[*] Returning to main menu.")
+
 def step_revert_stock():
     print("\n" + "=" * 60)
     print("  REVERT: Restoring Stock Jio Launcher & Services")
@@ -339,14 +398,15 @@ def main():
 
     print("\nSelect Action:")
     print("  1) Full 1-Click Setup (Recommended)")
-    print("     [Freeze OTAs + Debloat Ads + Install Monet/Shevery/Cast + Dark Mode + Hotkeys]")
+    print("     [Freeze OTAs + Debloat Ads + Choose Projectivy/Monet + Dark Mode + Hotkeys]")
     print("  2) Debloat & Freeze OTAs Only (Keep current launcher & apps)")
     print("  3) Install Bundled Utility APKs Only")
-    print("  4) Configure Hotkeys & Dark Mode Only")
-    print("  5) Revert / Restore Stock Jio Launcher & Services")
-    print("  6) Exit")
+    print("  4) Configure Launcher & Remote Hotkeys Only")
+    print("  5) Manage JioStore & Non-GMS Apps (Fix Zee5/SonyLIV crashes)")
+    print("  6) Revert / Restore Stock Jio Launcher & Services")
+    print("  7) Exit")
 
-    choice = input("\nEnter choice [1-6, default: 1]: ").strip()
+    choice = input("\nEnter choice [1-7, default: 1]: ").strip()
     if not choice:
         choice = "1"
 
@@ -367,11 +427,14 @@ def main():
     elif choice == "3":
         step_install_apks()
     elif choice == "4":
-        step_configure_hotkeys()
+        chosen_launcher = step_configure_launcher()
+        step_configure_hotkeys(chosen_launcher)
         step_system_tweaks()
     elif choice == "5":
-        step_revert_stock()
+        step_manage_jiostore_apps()
     elif choice == "6":
+        step_revert_stock()
+    elif choice == "7":
         print("Exiting.")
         sys.exit(0)
     else:

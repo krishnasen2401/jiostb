@@ -60,7 +60,10 @@ pm disable-user --user 0 com.jio.adc.aka
 pm disable-user --user 0 com.jio.systemstats
 pm disable-user --user 0 com.rjil.jiostblogservice
 pm disable-user --user 0 com.jio.stb.remotediagnose
-pm disable-user --user 0 com.jio.store
+# Optional: com.jio.store is intentionally preserved!
+# Jio STB lacks Google Play Services (GMS). JioStore provides official
+# AOSP-tailored versions of Zee5, SonyLIV, etc. that do not crash.
+# pm disable-user --user 0 com.jio.store
 pm disable-user --user 0 com.jio.universalsetup
 pm disable-user --user 0 com.netflix.partnertoken
 
@@ -68,37 +71,31 @@ pm disable-user --user 0 com.netflix.partnertoken
 # pm disable-user --user 0 com.android.app.jio.voiceassist
 ```
 
-### C. Replace Stock Launcher (Projectivy or Monet)
-Choose your preferred clean launcher:
-* **Option 1: Monet Launcher** (Lightweight Material You launcher bundled in `apks/`):
-  ```bash
-  adb install apks/monet-launcher.apk
-  adb shell pm grant com.klevico.monet android.permission.WRITE_SECURE_SETTINGS
-  ```
-* **Option 2: Projectivy Launcher** (Highly customizable Android TV launcher):
-  ```bash
-  adb install Projectivy_Launcher.apk
-  ```
-
-### C. Install Custom Clean Launcher (Projectivy or Monet)
+### C. Install & Configure Custom Launcher (Projectivy or Monet)
 
 Both **Projectivy Launcher** and **Monet Launcher** are included prebuilt in [`apks/`](apks/):
 
 1. **Option 1: Projectivy Launcher (Recommended)**
-   - Premium Leanback TV experience with custom category rows, "Watch Next", custom wallpapers, and input switching.
+   - Premium Leanback smart TV UI with custom category rows, "Watch Next" channels, custom wallpapers, and input switching.
    ```bash
    adb install -r apks/ProjectivyLauncher.apk
-   cmd package set-home-activity com.spocky.projengmenu/.ui.home.MainActivity
-   pm grant com.spocky.projengmenu android.permission.WRITE_SECURE_SETTINGS
-   settings put secure enabled_accessibility_services com.spocky.projengmenu/.services.ProjectivyAccessibilityService
+   adb shell cmd package set-home-activity com.spocky.projengmenu/.ui.home.MainActivity
+   adb shell pm grant com.spocky.projengmenu android.permission.WRITE_SECURE_SETTINGS
+   adb shell appops set com.spocky.projengmenu SYSTEM_ALERT_WINDOW allow
+   adb shell settings put secure enabled_accessibility_services com.spocky.projengmenu/.services.ProjectivyAccessibilityService
+   adb shell settings put secure accessibility_enabled 1
+   adb shell am start -n com.spocky.projengmenu/.ui.home.MainActivity
    ```
 
 2. **Option 2: Monet Launcher**
-   - Ultra-lightweight minimalist Material You grid launcher.
+   - Ultra-lightweight minimalist Material You grid launcher (~30–40 MB RAM).
    ```bash
    adb install -r apks/monet-launcher.apk
-   cmd package set-home-activity com.klevico.monet/.HomeActivity
-   pm grant com.klevico.monet android.permission.WRITE_SECURE_SETTINGS
+   adb shell cmd package set-home-activity com.klevico.monet/.HomeActivity
+   adb shell pm grant com.klevico.monet android.permission.WRITE_SECURE_SETTINGS
+   adb shell settings put secure enabled_accessibility_services com.klevico.monet/.LauncherAccessibilityService
+   adb shell settings put secure accessibility_enabled 1
+   adb shell am start -n com.klevico.monet/.HomeActivity
    ```
 
 > [!CRITICAL]
@@ -438,7 +435,38 @@ pm disable-user --user 0 com.jio.universalsetup
 
 ---
 
-## 12. Community Credits & Source References
+## 12. Resolving Zee5, SonyLIV & OTT App Crashes: Non-GMS AOSP vs. JioStore
+
+### The Root Cause: Why Generic TV APKs Crash
+* Reliance Jio STBs run non-GMS AOSP Android (without certified Google Play Services or `com.google.android.gms`).
+* Generic TV APKs downloaded from APKMirror, APKPure, or Aurora Store (such as **Zee5**, **SonyLIV**, **SunNXT**, and **Hotstar**) compile against Google Play Services for authentication and analytics.
+* When launched on a Jio STB, these apps throw:
+  ```text
+  java.lang.NoClassDefFoundError: Failed resolution of: Lcom/google/android/gms/common/GoogleApiAvailability;
+  ```
+  and instantly crash back to the home screen.
+
+### Solution 1: Keep JioStore Enabled (Recommended)
+Reliance Jio partners with OTT providers to distribute custom, AOSP-tailored versions of these apps specifically built for Jio STB hardware with all GMS dependencies stripped out.
+* In our latest toolkit update, `com.jio.store` is **preserved by default** and excluded from debloating.
+* If you previously disabled JioStore, re-enable and open it using:
+  ```bash
+  adb shell pm enable com.jio.store
+  adb shell am start -n com.jio.store/.MainActivity
+  ```
+* Install **Zee5**, **SonyLIV**, and other streaming apps directly from JioStore. They will launch and play with zero crashes.
+
+### Solution 2: Install microG GmsCore Companion
+If you prefer not using JioStore and wish to run standard Android TV APKs from APKMirror:
+* Sideload **microG Companion / GmsCore** (`com.google.android.gms`).
+* microG provides lightweight open-source stubs for Google Play Services and Firebase, preventing third-party TV APKs from crashing on startup.
+
+### Solution 3: Direct Jio CDN URL Fetch & App Extraction
+JioStore downloads its APK packages from Reliance Jio's public Akamai NetStorage CDNs (similar to firmware OTAs on `http://fota.slv.*.jiophone.net` and `akamaized.net`). Once the direct download link for an app is captured, the exact Jio-tailored APK can be fetched on PC and installed directly via standard `adb install <app>.apk`.
+
+---
+
+## 13. Community Credits & Source References
 
 This toolkit builds upon discoveries and research from the open-source community:
 
