@@ -446,15 +446,22 @@ pm disable-user --user 0 com.jio.universalsetup
   ```
   and instantly crash back to the home screen.
 
-### Solution 1: Keep JioStore Enabled (Recommended)
-Reliance Jio partners with OTT providers to distribute custom, AOSP-tailored versions of these apps specifically built for Jio STB hardware with all GMS dependencies stripped out.
-* In our latest toolkit update, `com.jio.store` is **preserved by default** and excluded from debloating.
-* If you previously disabled JioStore, re-enable and open it using:
-  ```bash
-  adb shell pm enable com.jio.store
-  adb shell am start -n com.jio.store/.MainActivity
-  ```
-* Install **Zee5**, **SonyLIV**, and other streaming apps directly from JioStore. They will launch and play with zero crashes.
+### Solution 1: The "Install & Freeze" Workflow (Recommended - Best of Both Worlds)
+Reliance Jio partners with OTT providers to distribute custom, AOSP-tailored versions of these apps specifically built for Jio STB hardware with all GMS dependencies stripped out. However, if JioStore is left running continuously in the background, it can auto-download promotional casual games and bloatware via `com.jio.appoptimizer`.
+
+To prevent this bloat while still getting official non-crashing apps, use the **Install & Freeze** workflow (built directly into Option 5 of `1CLICK_POST_ADB_SETUP.bat`):
+1. **Temporarily enable & open JioStore:**
+   ```bash
+   adb shell pm enable com.jio.store
+   adb shell am start -n com.jio.store/.MainActivity
+   ```
+2. **Install your desired apps:** Use your TV remote to install **Zee5**, **SonyLIV**, **SunNXT**, **Discovery+**, etc.
+3. **Immediately freeze JioStore:**
+   ```bash
+   adb shell pm disable-user --user 0 com.jio.store
+   adb shell am force-stop com.jio.store
+   ```
+4. **Result:** Your installed TV apps remain fully functional and play flawlessly, but JioStore is frozen and **cannot push background bloatware, ads, or auto-install unwanted games**!
 
 ### Solution 2: Install microG GmsCore Companion
 If you prefer not using JioStore and wish to run standard Android TV APKs from APKMirror:
