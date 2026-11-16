@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Submit Discovered Firmware Akamai URL
+    url: https://forms.gle/thYgeHvudJRGabWn7
+    about: Submit a newly captured Jio STB or Router firmware link to our public catalog.

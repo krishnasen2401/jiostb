@@ -80,14 +80,21 @@ cd jiostb
 ### Module 1: Permanent ADB Unlock (No Docker / Zero Dependencies)
 
 #### A. Direct Ethernet Mode (Recommended)
-1. Connect an RJ45 Ethernet cable directly between PC and STB.
+1. **Network Setup:**
+   * Keep your **PC / Laptop connected to Wi-Fi / Internet** (required for Online Relay Mode to fetch live Undertow challenge nonces from Reliance Jio's live ACS).
+   * Connect an RJ45 Ethernet cable **directly between PC and STB** (the STB must be isolated from your home router/WAN).
 2. Double click **`UNLOCK_ADB_ETHERNET.bat`** (Accept Admin prompt).
-3. Cold power-cycle the STB (unplug power cable, wait 5 seconds, reconnect).
-4. Watch console output:
-   - Sets Ethernet interface to `192.168.50.1`.
-   - DHCP assigns `192.168.50.2` to the STB.
-   - TR-069 ACS terminates TLS and injects `Device.JioSTB.USB.USBDebugging = true` (valid until 2037).
-5. Once complete, connect via ADB:
+3. **Select your STB Model Family:**
+   * Enter `1` for **JMS Series** (`JMSD200A`, `JMSC200A`, `JMSB200A` / AirFiber) $\to$ loads `acs_chain.pem` (RILROOTCA pin).
+   * Enter `2` for **JHS Series** (`JHSD200`, `JHSC200`, `JHSB200` / JioOS 2.0) $\to$ loads `forged_chain.pem` (eMudhra chain).
+4. **Cold Power-Cycle the STB:**
+   * Unplug the 12V DC power cable directly from the back of the STB (do not use the remote control).
+   * Wait 5 seconds $\to$ Reconnect power.
+5. **Patience Window (Leave Console Running for 1–2 Minutes):**
+   * Early connections on `[:443]` with `closed by peer` are standard Android OS background telemetry.
+   * The actual TR-069 service (`com.jio.tr069client`) initializes on port **`[:8443]`** roughly **45 to 60 seconds after power-on**.
+   * The lab terminates TLS, synchronizes the STB clock to 2026 via NTP, relays authentication nonces, and injects `Device.JioSTB.USB.USBDebugging = true` (valid until 2037).
+6. Once complete, connect via ADB from any terminal:
    ```cmd
    adb connect 192.168.50.2:5555
    ```
@@ -191,6 +198,39 @@ To restore full Google Cast functionality:
 
 ### Stopping Labs & Cleaning Ports
 Whenever you finish testing, double click **`STOP_ALL_LABS.bat`** to terminate all background listeners, free ports (`53, 67, 80, 123, 443, 7443, 8443, 9443`), and restart Windows Time Service (`w32time`).
+
+---
+
+## 🔍 Troubleshooting, Diagnostic Logs & Issue Reporting
+
+### 1. Understanding What the Console Logs Mean
+When running `UNLOCK_ADB_ETHERNET.bat`, the terminal logs connection events. Here is how to interpret them:
+
+* **`TLS ok ... [:443]` followed by `closed by peer`:**  
+  🟢 **Normal & Harmless.** During early boot, Android's NetworkMonitor checks captive portals and background apps (Firebase/Facebook SDK) probe HTTPS. Because our mock ACS terminates TLS with the STB's trusted root certificate, the TLS handshake succeeds (`TLS ok`). The background app then closes the connection (`closed by peer`) because it did not reach `google.com`.
+* **Where is TR-069? Look for Port `[:8443]`:**  
+  The STB TR-069 management daemon (`com.jio.tr069client`) does **not** connect to port 443. It connects strictly to **port `8443`** (or fallback `9443`) **45 to 60 seconds after power-on** (once the launcher loads).
+* **Patience Window (Do Not Close Early):**  
+  Always keep the terminal windows open and untouched for at least **1 to 2 minutes** after cold power-cycling the STB.
+
+### 2. The 3 Mandatory Diagnostic Log Files
+Whenever diagnosing an issue or opening a GitHub ticket, please refer to the 3 log files generated automatically in the toolkit root folder:
+
+| Log File | What It Records |
+| :--- | :--- |
+| **`mock_acs.log`** | TCP connections, TLS handshakes, target ports (`:443`, `:8443`, `:9443`), and TR-069 session lifecycle. |
+| **`captive_lab.log`** | DHCP IP leases (`192.168.50.2`), NTP time sync (setting STB clock to 2026), DNS spoofing resolutions, and HTTP 204 captive portal requests. |
+| **`mock_acs_packets.log`** | Full decrypted XML packet dump of all TR-069 `cwmp:Inform`, Digest Authentication handshakes, and `SetParameterValues` RPC responses. |
+
+### 3. How the Online Relay Engine Works
+* **Your PC should be connected to Wi-Fi / Internet** while running the Ethernet unlock lab.
+* **Why?** When the STB boots and sends its `Inform`, our lab talks to Reliance Jio's production ACS (`49.40.134.113:8443`) in real time through your PC's Wi-Fi. It retrieves genuine Undertow server challenge nonces, relays them to the STB over the Ethernet cable, lets the STB compute the valid hash, and then **hijacks the authenticated session** to inject the permanent ADB unlock commands!
+
+### 4. Opening a GitHub Issue
+If your STB does not unlock after 2 minutes:
+1. Go to [Issues $\to$ New Issue](https://github.com/krishnasen2401/jiostb/issues/new).
+2. Specify your **Model** (e.g. `JHSD200 v2/v5` or `JMSD200A`) and firmware version.
+3. Attach the 3 log files (`mock_acs.log`, `captive_lab.log`, `mock_acs_packets.log`) directly into the issue box.
 
 ---
 
