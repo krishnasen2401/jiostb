@@ -157,7 +157,9 @@ def step_install_apks():
         return
 
     apk_files = [
+        ("Projectivy Launcher (Premium Leanback UI)", "ProjectivyLauncher.apk"),
         ("Monet Launcher (Clean Ad-free UI)", "monet-launcher.apk"),
+        ("Key Mapper (Open-Source Button Remapper)", "KeyMapper.apk"),
         ("OpenShelf (FOSS Android TV App Store)", "OpenShelf-0.7.0.apk"),
         ("Shevery (On-device Shizuku shell)", "shevery-release.apk"),
         ("Google Cast Receiver (Official Chromecast)", "mediashell.apk"),
@@ -179,9 +181,12 @@ def step_install_apks():
         else:
             print(f"FAILED ({res})")
 
-    # Pre-grant installer permissions so stores install apps without permission prompts
+    # Pre-grant installer permissions and secure settings
     run_adb_shell("appops set io.github.wingedpanther.openshelf REQUEST_INSTALL_PACKAGES allow")
     run_adb_shell("appops set com.aurora.store REQUEST_INSTALL_PACKAGES allow")
+    run_adb_shell("pm grant io.github.sds100.keymapper android.permission.WRITE_SECURE_SETTINGS")
+    run_adb_shell("pm grant com.spocky.projengmenu android.permission.WRITE_SECURE_SETTINGS")
+    run_adb_shell("pm grant com.klevico.monet android.permission.WRITE_SECURE_SETTINGS")
 
 def step_configure_launcher():
     print("\n" + "=" * 60)
@@ -193,20 +198,34 @@ def step_configure_launcher():
     # Uninstalling for user 0 permanently removes it while keeping APK in /system!
     run_adb_shell("pm uninstall --user 0 com.iwedia.ui.rjio.launcher.reliance")
 
-    print("  [*] Setting Monet Launcher as default Home activity...")
-    run_adb_shell("cmd package set-home-activity com.klevico.monet/.HomeActivity")
-    run_adb_shell("pm grant com.klevico.monet android.permission.WRITE_SECURE_SETTINGS")
-    run_adb_shell("am force-stop com.iwedia.ui.rjio.launcher.reliance")
-    print("[+] Clean launcher activated and locked across reboots!")
+    print("\n  Select your preferred default launcher:")
+    print("    [1] Projectivy Launcher (Recommended - Premium Leanback UI, Channels & Up Next)")
+    print("    [2] Monet Launcher (Lightweight Minimalist Material UI)")
+    choice = input("  Enter choice [1 or 2, default 1]: ").strip()
 
-def step_configure_hotkeys():
+    if choice == "2":
+        launcher_pkg = "com.klevico.monet"
+        print("  [*] Setting Monet Launcher as default Home activity...")
+        run_adb_shell("cmd package set-home-activity com.klevico.monet/.HomeActivity")
+        print("[+] Monet Launcher activated and locked across reboots!")
+    else:
+        launcher_pkg = "com.spocky.projengmenu"
+        print("  [*] Setting Projectivy Launcher as default Home activity...")
+        run_adb_shell("cmd package set-home-activity com.spocky.projengmenu/.ui.home.MainActivity")
+        run_adb_shell("settings put secure enabled_accessibility_services com.spocky.projengmenu/.services.ProjectivyAccessibilityService")
+        print("[+] Projectivy Launcher activated and locked across reboots!")
+
+    run_adb_shell("am force-stop com.iwedia.ui.rjio.launcher.reliance")
+    return launcher_pkg
+
+def step_configure_hotkeys(launcher_pkg="com.spocky.projengmenu"):
     print("\n" + "=" * 60)
     print("  STEP 4: Configuring CleanYourTV Remote Hotkeys")
     print("=" * 60)
 
     config_data = {
         "keys": [
-            {"keyCode": 137, "action": "launch_app", "packageName": "com.klevico.monet"},
+            {"keyCode": 137, "action": "launch_app", "packageName": launcher_pkg},
             {"keyCode": 138, "action": "launch_app", "packageName": "com.aurora.store"},
             {"keyCode": 134, "action": "launch_app", "packageName": "com.user.androidsettings"},
             {"keyCode": 141, "action": "launch_app", "packageName": "com.jio.media.jiotvplus"},
@@ -334,8 +353,8 @@ def main():
     if choice == "1":
         step_debloat()
         step_install_apks()
-        step_configure_launcher()
-        step_configure_hotkeys()
+        chosen_launcher = step_configure_launcher()
+        step_configure_hotkeys(chosen_launcher)
         step_system_tweaks()
         step_save_credentials(info)
         print("\n" + "=" * 65)

@@ -169,10 +169,13 @@ When a new firmware update is intercepted, the lab saves the URL to `fota_update
 Detailed step-by-step instructions to uninstall stock Jio launcher, ads, and telemetry while configuring **Projectivy Launcher**, native **Android TV Settings**, **CleanYourTV remote hotkeys**, and **Bluetooth Voice Remote pairing & Mic button remapping** are documented in [`DEBLOAT_GUIDE.md`](DEBLOAT_GUIDE.md).
 
 Prebuilt companion APKs are included in [`apks/`](apks/):
+* `ProjectivyLauncher.apk`: Highly customizable, premium Google TV/Apple TV-style Leanback launcher with channel rows & "Watch Next" support.
+* `monet-launcher.apk`: Ultra-lightweight Material You Android TV launcher.
+* `KeyMapper.apk`: Powerful open-source button & remote remapping utility.
+* `TVHome.apk`: CleanYourTV remote hotkey mapper (remap Netflix, Hotstar, Prime, and physical Mic/Voice button).
+* `OpenShelf-0.7.0.apk`: FOSS Android TV App Store connecting directly to GitHub releases.
 * `AndroidSettingsShortcut.apk`: Direct launcher for native Android TV Settings (`com.android.tv.settings`) — used for Bluetooth remote & audio pairing, Wi-Fi, and Developer Options.
 * `JioSettingsShortcut.apk`: Standalone launcher for Jio Settings (`com.rjil.jiostbsetting`).
-* `TVHome.apk`: CleanYourTV remote hotkey mapper (remap Netflix, Hotstar, Prime, and physical Mic/Voice button).
-* `monet-launcher.apk`: Lightweight Material You Android TV launcher.
 * `shevery-release.apk`: On-device Shizuku shell (`uid=2000`) for PC-free management.
 * `AuroraStore_4.8.4.apk`: Open-source Google Play Store client for Android TV.
 * `mediashell.apk`: Production Google Cast receiver update enabling genuine Chromecast built-in streaming.
@@ -353,11 +356,13 @@ jio-fota-toolkit/
 ├── 🐍 share_firmware.py               # Discovered firmware submission helper
 │
 ├── 📂 apks/                            # Prebuilt companion APKs
+│   ├── ProjectivyLauncher.apk         # Premium Leanback TV launcher (Up Next & channels)
+│   ├── monet-launcher.apk             # Material You clean minimalist TV launcher
+│   ├── KeyMapper.apk                  # Open-source button & remote key remapper
+│   ├── TVHome.apk                     # CleanYourTV remote key mapper
+│   ├── OpenShelf-0.7.0.apk            # FOSS Android TV App Store (GitHub releases)
 │   ├── AndroidSettingsShortcut.apk    # Native Android TV Settings launcher
 │   ├── JioSettingsShortcut.apk        # Standalone Jio Settings launcher
-│   ├── TVHome.apk                     # CleanYourTV remote key mapper
-│   ├── monet-launcher.apk             # Material You clean TV launcher
-│   ├── OpenShelf-0.7.0.apk            # FOSS Android TV App Store (GitHub releases)
 │   ├── shevery-release.apk            # On-device Shizuku shell provider
 │   ├── AuroraStore_4.8.4.apk          # Open-source Google Play client
 │   └── mediashell.apk                 # Production Google Cast receiver update

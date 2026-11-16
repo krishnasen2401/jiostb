@@ -80,6 +80,27 @@ Choose your preferred clean launcher:
   adb install Projectivy_Launcher.apk
   ```
 
+### C. Install Custom Clean Launcher (Projectivy or Monet)
+
+Both **Projectivy Launcher** and **Monet Launcher** are included prebuilt in [`apks/`](apks/):
+
+1. **Option 1: Projectivy Launcher (Recommended)**
+   - Premium Leanback TV experience with custom category rows, "Watch Next", custom wallpapers, and input switching.
+   ```bash
+   adb install -r apks/ProjectivyLauncher.apk
+   cmd package set-home-activity com.spocky.projengmenu/.ui.home.MainActivity
+   pm grant com.spocky.projengmenu android.permission.WRITE_SECURE_SETTINGS
+   settings put secure enabled_accessibility_services com.spocky.projengmenu/.services.ProjectivyAccessibilityService
+   ```
+
+2. **Option 2: Monet Launcher**
+   - Ultra-lightweight minimalist Material You grid launcher.
+   ```bash
+   adb install -r apks/monet-launcher.apk
+   cmd package set-home-activity com.klevico.monet/.HomeActivity
+   pm grant com.klevico.monet android.permission.WRITE_SECURE_SETTINGS
+   ```
+
 > [!CRITICAL]
 > **Persistent Launcher Fix (Jio PackageManagerService Quirk):**  
 > On Jio STB firmware, `pm disable-user --user 0 com.iwedia.ui.rjio.launcher.reliance` **does NOT survive a cold reboot!**  
@@ -92,10 +113,8 @@ Choose your preferred clean launcher:
 > This removes the launcher registration for user 0 while leaving the APK safely in the read-only `/system` partition. Jio's bootloader does NOT reinstall uninstalled user packages.  
 > *(To restore it anytime: `cmd package install-existing com.iwedia.ui.rjio.launcher.reliance`)*
 
-Now set your clean launcher as the default HOME activity:
+Kill the stock launcher process:
 ```bash
-cmd package set-home-activity com.klevico.monet/.HomeActivity
-# (or com.spocky.projengmenu/.activity.HomeActivity for Projectivy)
 am force-stop com.iwedia.ui.rjio.launcher.reliance
 ```
 
@@ -245,6 +264,16 @@ Ensure the Accessibility Service is enabled:
 ```bash
 settings put secure enabled_accessibility_services com.gathin.tvhome/.InputKeyService
 ```
+
+### Alternative: Key Mapper (`apks/KeyMapper.apk`)
+For advanced visual button remapping (short press, double tap, long press combinations):
+1. Install Key Mapper:
+   ```bash
+   adb install -r apks/KeyMapper.apk
+   pm grant io.github.sds100.keymapper android.permission.WRITE_SECURE_SETTINGS
+   settings put secure enabled_accessibility_services io.github.sds100.keymapper/.system.accessibility.MyAccessibilityService
+   ```
+2. Open Key Mapper on your TV to record triggers and assign custom actions, app launches, or key events.
 
 ---
 
