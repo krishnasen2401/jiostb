@@ -426,6 +426,34 @@ This toolkit is engineered with strict non-destructive safety guardrails to ensu
 
 ---
 
+## ❓ Frequently Asked Questions & Troubleshooting
+
+### 1. I see `SSLV3_ALERT_CERTIFICATE_UNKNOWN` or `closed by peer` on port 443 — did the unlock fail?
+**No, it did NOT fail.**
+* When the STB boots on an isolated captive network, third-party Android apps (Google Play Services, Firebase Analytics, Crashlytics, Jio ads) attempt to reach external HTTPS servers over port `443`.
+* Because those third-party apps enforce public CAs, they fail TLS handshakes.
+* Meanwhile, the actual TR-069 management service (`com.jio.tr069client`) connects on port **`9443`** (JHS Series using `forged_chain.pem`) or **`8443`** (JMS Series using `acs_chain.pem`).
+* In your `mock_acs.log`, you will see:
+  ```text
+  [INFORM] Device Info: Manufacturer=Droidlogic ProductClass=JHSD200 SerialNumber=...
+  *** SUCCESS! STB ACCEPTED Enable USBDebugging (Device.JioSTB)! ADB IS FULLY UNLOCKED! ***
+  ```
+* In the latest toolkit release, port 443 telemetry noise is silenced from the console and logged quietly to `mock_acs.log`, and an unmissable ASCII **`🎉 SUCCESS: JIO STB ADB IS FULLY UNLOCKED!`** banner will display the instant the STB accepts the command.
+
+### 2. Why does `QUERY_JIO_ACS.bat` fail with `ConnectTimeoutError` (49.40.134.113)?
+* **`QUERY_JIO_ACS.bat` is NOT required for local STB unlocking!**
+* `QUERY_JIO_ACS.bat` is an advanced research script that attempts to contact Reliance Jio's upstream cloud ACS (`49.40.134.113:8443`).
+* `49.40.134.113` is an internal private IP reachable **only over an active JioFiber WAN connection**. When your PC's Ethernet is directly plugged into the STB (`192.168.50.1`), your computer cannot route to `49.40.134.113`.
+* To unlock your STB, strictly use **`UNLOCK_ADB_ETHERNET.bat`** or **`UNLOCK_ADB_WIFI.bat`**.
+
+### 3. Is JMSD200A (Jio AirFiber / Android 11 Build 25.1.9) supported?
+**Yes, 100% verified and tested.**
+* Select **Option 1 (JMS Series)** in `UNLOCK_ADB_ETHERNET.bat`.
+* It utilizes `acs_chain.pem` (RILROOTCA pin) to unlock ADB on port `5555`.
+* Once unlocked, run `.\1CLICK_POST_ADB_SETUP.bat` to disable all background ad daemons (`com.jio.stbadservice`, `com.jio.bioscopecontentservice`, `com.jio.screensaver`), install custom launchers (Projectivy or Monet), map remote keys, and restore Google Cast.
+
+---
+
 ## 🙏 Credits & Acknowledgements
 
 This toolkit builds upon the foundational reverse-engineering and research contributed by the open-source community:

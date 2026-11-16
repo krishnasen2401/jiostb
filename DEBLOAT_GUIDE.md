@@ -395,7 +395,50 @@ adb shell am start -n "com.jio.media.jiotvplus/com.jio.jioplay.jiotvplustwo.Main
 
 ---
 
-## 11. Community Credits & Source References
+## 11. Verified Hardware Profile: JMSD200A (Jio AirFiber Android 11 / Build 25.1.9)
+
+The **JMSD200A** (bundled with Jio AirFiber installations) has been fully tested and validated:
+
+### 1. ADB Unlock Specifics
+* **Hardware Family:** Select **Option 1 (JMS Series)** in `UNLOCK_ADB_ETHERNET.bat`.
+* **Certificate Pinning:** Uses `acs_chain.pem` (RILROOTCA root certificate).
+* **TR-069 Service:** Connects on port `8443` or `9443` ~45–60 seconds after power-on.
+* **Result:** ADB port `5555` becomes active immediately.
+
+### 2. Confirmed Working Debloat Target Packages
+The following ad and update services can be safely disabled without breaking persistent ADB:
+```bash
+# Firmware Updaters
+pm disable-user --user 0 com.jio.httpupdate
+pm disable-user --user 0 com.jio.usbupdate
+
+# Ads, Screen Savers & Telemetry
+pm disable-user --user 0 com.jio.stbadservice
+pm disable-user --user 0 com.jio.bioscopecontentservice
+pm disable-user --user 0 com.jio.screensaver
+pm disable-user --user 0 com.jio.adc.embedded
+pm disable-user --user 0 com.jio.adc.aka
+pm disable-user --user 0 com.jio.appoptimizer
+pm disable-user --user 0 com.jio.backgroundscheduler
+pm disable-user --user 0 com.jio.systemstats
+pm disable-user --user 0 com.jio.stb.remotediagnose
+pm disable-user --user 0 com.jio.universalsetup
+```
+
+### 3. Launcher Selection: Projectivy vs. Monet on JMSD200A
+* **Projectivy Launcher (v4.73):** **Recommended for daily TV use.** Provides standard 10-ft Android TV UI, "Watch Next" rows, integrated channel categories (NuvioTV, SmartTube, Kodi), and runs at solid 60fps on JMSD200A's quad-core Amlogic SoC with `0.5x` animation scales.
+* **Monet Launcher:** Best for ultra-minimalist setups. Uses only ~30–40 MB RAM with clean Material You app grid.
+
+### 4. Remote Key Mapping with CleanYourTV / KeyMapper
+* **Netflix (KeyCode 137):** Projectivy / Monet Home
+* **Hotstar (KeyCode 138):** Aurora Store / SmartTube
+* **Prime Video (KeyCode 134):** Native Android TV Settings (`com.android.tv.settings`)
+* **JioTV+ (KeyCode 141):** NuvioTV (`com.nuvio.tv`)
+* **Extra / Apps (KeyCode 142):** Shevery local root shell
+
+---
+
+## 12. Community Credits & Source References
 
 This toolkit builds upon discoveries and research from the open-source community:
 

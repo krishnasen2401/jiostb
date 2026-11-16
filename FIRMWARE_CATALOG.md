@@ -65,6 +65,7 @@ These devices use Google's Android Seamless A/B system partition architecture (`
 
 | Model Code | Device Target | Firmware Version | Android OS | Package Size | Direct Download URL |
 | :--- | :--- | :--- | :--- | :--- | :--- |
+| **JMSD200A** | Jio STB (AirFiber / Amlogic) | `25.1.9` | **Android 11 (API 30)** | Factory / OTA | `JioSTB-JMSD200A-25.1.9` (Option 1 `acs_chain.pem`) |
 | **SA002_111** | Jio 4K OTT STB (MSTB) | `23.1.11` | **Android 11 (API 30)** | **695,047,856 bytes** (~662.8 MB) | [Download](http://fota.slv.kai.jiophone.net/BHTS/DIN537/SA002_111/kArxcKXoHi.zip) |
 | **BA002_111** | Jio 4K OTT STB (MSTB) | `23.1.11` | **Android 11 (API 30)** | **694,433,416 bytes** (~662.3 MB) | [Download](http://fota.slv.kai.jiophone.net/BHTS/DIN537/BA002_111/JOwJatziuX.zip) |
 | **SA002_111 (Alt)** | Jio 4K OTT STB (MSTB) | `23.1.11` | **Android 11 (API 30)** | **675,296,877 bytes** (~644.0 MB) | [Download](http://fota.slv.kai.jiophone.net/BHTS/DIN547/SA002_111/hEDSBAGcEX.zip) |
