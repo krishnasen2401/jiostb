@@ -113,6 +113,9 @@ if (-not $hotspotAdapter) {
     Write-Host "    If you are using Windows Mobile Hotspot:" -ForegroundColor Cyan
     Write-Host "    1. Open Windows Settings -> Network & internet -> Mobile hotspot" -ForegroundColor Cyan
     Write-Host "    2. Toggle Mobile hotspot to ON (SSID: JioSTB-Setup, Pass: password123)" -ForegroundColor Cyan
+    Write-Host "    * Windows 11 Tip: Windows requires an active internet connection to enable Hotspot." -ForegroundColor DarkYellow
+    Write-Host "      (Workaround: Connect PC to phone hotspot first, turn Mobile Hotspot ON, then proceed)" -ForegroundColor DarkYellow
+    Write-Host "    * HP Victus / AMD / MediaTek MT7921 Tip: If Wi-Fi loops ON/OFF, use Direct Ethernet!" -ForegroundColor DarkYellow
     Write-Host "    The server will still bind to 0.0.0.0 and listen for connections!`n" -ForegroundColor Yellow
 } else {
     Write-Host "[+] Found Hotspot Adapter: $($hotspotAdapter.Name) ($($hotspotAdapter.InterfaceDescription))" -ForegroundColor Green

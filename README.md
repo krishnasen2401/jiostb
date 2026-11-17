@@ -114,10 +114,12 @@ cd jiostb
 1. Open Windows Settings $\to$ **Network & internet** $\to$ **Mobile hotspot**.
 2. Configure SSID: `JioSTB-Setup`, Password: `password123`, Band: **2.4 GHz**.
 3. Toggle Mobile Hotspot to **ON**.
-4. Disconnect PC from external home Wi-Fi/Internet (to keep the network isolated).
-5. Double click **`UNLOCK_ADB_WIFI.bat`** (Accept Admin prompt).
-6. Connect the STB to `JioSTB-Setup` and cold-reboot it.
-7. Connect via ADB to the assigned IP logged in console:
+   > [!TIP]
+   > **Windows 11 Internet Sharing Requirement:**
+   > Windows 11 strictly requires an active internet connection to enable Mobile Hotspot. If your PC has no internet, temporarily connect it to your mobile phone's hotspot or home Wi-Fi first, turn Windows Mobile Hotspot **ON**, and then proceed. (See [FAQ #4](#4-windows-11-mobile-hotspot-fails-says-no-internet-to-share-or-wi-fi-loops-onoff-hp-victus--amd--mediatek-mt7921) if using HP Victus / AMD / MediaTek Wi-Fi).
+4. Double click **`UNLOCK_ADB_WIFI.bat`** (Accept Admin prompt).
+5. Connect the STB to `JioSTB-Setup` and cold-reboot it (unplug 12V DC power $\to$ wait 5s $\to$ replug).
+6. Connect via ADB to the assigned IP logged in console:
    ```cmd
    adb connect 192.168.137.x:5555
    ```
@@ -455,6 +457,27 @@ This toolkit is engineered with strict non-destructive safety guardrails to ensu
 * Select **Option 1 (JMS Series)** in `UNLOCK_ADB_ETHERNET.bat`.
 * It utilizes `acs_chain.pem` (RILROOTCA pin) to unlock ADB on port `5555`.
 * Once unlocked, run `.\1CLICK_POST_ADB_SETUP.bat` to disable all background ad daemons (`com.jio.stbadservice`, `com.jio.bioscopecontentservice`, `com.jio.screensaver`), install custom launchers (Projectivy or Monet), map remote keys, and restore Google Cast.
+
+### 4. Windows 11 Mobile Hotspot fails, says "No Internet to share", or Wi-Fi loops ON/OFF (HP Victus / AMD / MediaTek MT7921)?
+
+#### Why this happens:
+1. **Windows 11 Internet Sharing Dependency:** Windows 11's Mobile Hotspot relies on the Internet Connection Sharing (ICS / `SharedAccess`) service. If the PC is completely offline, Windows 11 blocks hotspot creation with:
+   > *"We can't set up mobile hotspot because your PC doesn't have an Ethernet, Wi-Fi, or cellular data connection."*
+2. **Wi-Fi On/Off Looping on HP Victus AMD:** HP Victus 16 AMD laptops commonly ship with **MediaTek MT7921 / MT7922 (AMD RZ608/RZ616)** or **Realtek RTL8852AE/BE** Wi-Fi cards. On modern Windows 11 WDI/NDIS 6.5+ drivers, legacy `Hosted Network` is deprecated (`netsh wlan show drivers` reports `Hosted network supported: No`). When legacy Hosted Network commands are run or SoftAP fails, the MediaTek miniport driver crashes, causing Windows Plug-and-Play (PnP) to reset the hardware in an infinite ON $\to$ OFF loop.
+
+#### Solutions & Workarounds:
+* **Option A: Use Direct P2P Ethernet (`UNLOCK_ADB_ETHERNET.bat`) — Most Reliable:**
+  * Ethernet requires **zero Wi-Fi drivers, zero internet access, and zero ICS**.
+  * It creates an offline, isolated static subnet (`192.168.50.1`), completely bypassing Windows Hotspot and MediaTek driver bugs.
+  * If your laptop lacks an RJ45 port, any basic USB-to-Ethernet adapter works instantly.
+* **Option B: The "Trick Windows" Workaround (If you must use Wi-Fi):**
+  * Connect your PC to your mobile phone's hotspot (or home Wi-Fi) first so Windows 11 sees an active internet connection.
+  * Toggle Windows Mobile Hotspot to **ON** with SSID `JioSTB-Setup` and Password `password123`.
+  * Once the STB connects to `JioSTB-Setup`, our captive lab scripts bind to DNS port 53 and hijack all STB traffic locally anyway.
+* **Option C: To Stop the Wi-Fi Looping in Windows Device Manager:**
+  * Open **Device Manager** $\to$ **Network adapters** $\to$ Right-click **MediaTek Wi-Fi 6 (MT7921/RZ608)** $\to$ **Properties** $\to$ **Power Management** tab.
+  * **Uncheck** *"Allow the computer to turn off this device to save power"*.
+  * Updating the MediaTek driver to version `3.00.01.1275` or higher via HP Support Assistant or OEM update catalogs also permanently stabilizes this driver crash.
 
 ---
 
