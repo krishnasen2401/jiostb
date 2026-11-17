@@ -16,46 +16,53 @@ Supports all hardware generations of Reliance Jio Set-Top Boxes (**JHS D200 v1/v
 
 ---
 
-## 📚 Project Wiki & Documentation Directory
+## ⚡ Quick Start: 3-Step Unlock & Debloat
 
-To keep this main guide clean and actionable, detailed research, complete firmware tables, and advanced modification guides are split into dedicated wiki documents:
+```mermaid
+flowchart LR
+    A["1. Run Unlock Batch<br/>(Ethernet or Wi-Fi)"] --> B["2. Cold Power-Cycle STB<br/>(Pull 12V DC Plug)"]
+    B --> C["3. Run Post-Setup<br/>(Debloat & Custom TV)"]
+```
 
-| Document / Guide | Description |
-| :--- | :--- |
-| 📦 **[`FIRMWARE_CATALOG.md`](FIRMWARE_CATALOG.md)** | **45+ Verified Official Firmware Packages & Direct Download Links:** Complete archive of Akamai URLs covering Franklin (`JHSD200`, `JHSC200v2`, `JHSC200v3`), Legacy SDMC (`DV8545-Cn2`), 4K OTT STBs (`MSTB` A/B updates), Hotel builds (`*-H`), Jio Smart Displays (`curie`), and Media Hubs (`MCM3000`). |
-| 🛠️ **[`DEBLOAT_GUIDE.md`](DEBLOAT_GUIDE.md)** | **Post-ADB Debloating & Customization Guide:** Permanent removal of iWedia launcher (bypassing Jio's `Relax SCAN_REQUIRE_KNOWN` reboot reset via `pm uninstall --user 0`), Monet/Projectivy setup, forced Dark Mode, remote hotkey remapping (`TVHome.apk`), and **JioTV+ v6 upgrade guide with any-ISP mobile OTP login**. |
-| 🤖 **[`AGENTS.md`](AGENTS.md)** | **Autonomous AI Agent Runbook:** Machine-actionable protocols for AI agents (Claude Code, GPT, Antigravity) to autonomously detect hardware revisions, run 1-click ADB unlocks, and execute debloating. |
-| 🛡️ **[Anti-Brick Safety Matrix](#-anti-brick-architecture--safety-matrix)** | Full architectural breakdown explaining why standard non-destructive TR-069 RPCs prevent bricking your box. |
-| 🌐 **[Community & Credits](#-credits--acknowledgements)** | Acknowledgments, source references, and upstream research from OnlyTech Forums, GitHub, and XDA. |
+1. **Run the Unlocker:** Double-click **`UNLOCK_ADB_ETHERNET.bat`** (or **`UNLOCK_ADB_WIFI.bat`**).
+2. **Reboot the Box:** Unplug the **12V DC power cord** from the back of the STB, wait 5 seconds, and plug it back in.
+3. **Customize & Debloat:** Once the console prints the success banner, double-click **`1CLICK_POST_ADB_SETUP.bat`** to install Projectivy Launcher, Aptoide TV, TV Bro, CleanYourTV remote hotkeys, and debloat stock Jio ads.
 
 ---
 
-## 🌟 Discovered Official Firmware Packages (Direct Downloads)
+## ⚠️ Pre-Flight Checklist (Read Before You Begin)
 
-All firmware images listed below are directly hosted on Reliance Jio's public Akamai NetStorage servers without authentication.
+To ensure a smooth, error-free unlock on your first try, follow these 3 critical rules:
 
-### 1. Jio Set-Top Boxes (STBs)
-| Model / Codename | Version | Android Version | Package Size | Direct Download Link | Notes |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| **JHS D200 v2 / v5** (`franklin_bluebank`) | `11.3.46` | **Android 11** | **792.3 MB** | [Download qdOdPlaXso.zip](http://fota.slv.kai.jiophone.net/BHTS/DIN995/B002D_346/qdOdPlaXso.zip) | **Full block OTA** containing `boot.img`, `recovery.img`, `bootloader.img`, `super_empty_all.img`, `system.new.dat.br`, `vendor.new.dat.br` |
-| **JHS D200 v1** (`franklin`) | `5.7.1` | **Android 9 (Pie)** | **533.3 MB** | [Download STB-JHSD200-5.7.1.zip](http://fota.slv.fxd.jiophone.net/STB/Droidlogic/JHSD200/STB-JHSD200-5.7.1.zip) | Full block Android 9 OTA package for D200 v1 |
-| **JHS C200** (`DV8545-Cn2`) | `5.7.1` | **Android 9 (Pie)** | **532.0 MB** | [Download STB-JHSC200-5.7.1.zip](http://fota.slv.fxd.jiophone.net/STB/SDMC/STB-JHSC200-5.7.1.zip) | Full block Android 9 OTA package for SDMC C200 |
+> [!IMPORTANT]
+> 1. **Temporarily Disable Windows Firewall & Antivirus:**  
+>    Windows Defender Firewall or third-party suites (**Quick Heal**, **McAfee**, **Norton**) will silently drop inbound packets on ports `53` (DNS) and `8443`/`9443` (TR-069). **Turn them OFF for 15 minutes** while unlocking.
+> 2. **Always Cold Power-Cycle (12V DC Plug):**  
+>    **Do NOT use the remote power button!** Jio STB remote power only puts the device into a low-power standby state (`suspend-to-RAM`) where TR-069 does **not** re-initialize. You **must pull the physical 12V DC adapter barrel plug** from the back of the box, wait 5 seconds, and plug it back in.
+> 3. **Select the Correct Model Family:**  
+>    When the script prompts for your hardware family:
+>    * Press `1` for **JMS Series** (`JMSD200A`, `JMSC200A`, `JMSB200A` / AirFiber) $\to$ loads `acs_chain.pem` (RILROOTCA pin).
+>    * Press `2` for **JHS Series** (`JHSD200`, `JHSC200`, `JHSB200`, Skyworth `21.1.14` / JioOS 2.0) $\to$ loads `forged_chain.pem` (eMudhra pin).
 
-### 2. JioFiber ONTs / Routers
-| Model | Manufacturer | Version | Size | Direct Download Link | Notes |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| **JCOW411** | Arcadyan | `R2.3` | **69.4 MB** | [Download ARCNTF1_JCOW411_R2.3.img](http://fota.slv.fxd.jiophone.net/ONT/Arcadyan/JCOW411/ARCNTF1_JCOW411_R2.3.img) | Unencrypted `.img` release firmware |
-| **JCOW404** | Sercomm | `R2.3` | **69.0 MB** | [Download SRCMTF1_JCOW404_R2.3.img](http://fota.slv.fxd.jiophone.net/ONT/Sercomm/JCOW404/SRCMTF1_JCOW404_R2.3.img) | Unencrypted `.img` release firmware |
-| **JCOW401** | Arcadyan | `R1.34` | **63.1 MB** | [Download ARCTF1_JCOW401_R1.34.img](http://fota.slv.fxd.jiophone.net/ONT/Arcadyan/JCOW401/ARCTF1_JCOW401_R1.34.img) | Unencrypted `.img` release firmware |
-| **JCO110** | Arcadyan | `R1.130` | **55.4 MB** | [Download ARCTF1_JCO110_R1.130.img](http://fota.slv.fxd.jiophone.net/ONT/Arcadyan/JCO110/ARCTF1_JCO110_R1.130.img) | Unencrypted `.img` release firmware |
+---
 
-*(Over 45+ verified official firmware packages across Franklin JHSD200/JHSC200, SDMC DV8545, 4K OTT MSTB, Hotel variants, and Jio Smart Displays cataloged with direct download links in [`FIRMWARE_CATALOG.md`](FIRMWARE_CATALOG.md))*
+## 📚 Project Wiki & Documentation Directory
+
+Detailed research, full firmware tables, and advanced modification guides are split into dedicated documents:
+
+| Document / Guide | Description |
+| :--- | :--- |
+| 🛠️ **[`DEBLOAT_GUIDE.md`](DEBLOAT_GUIDE.md)** | **Post-ADB Debloating & Customization Guide:** Permanent removal of iWedia launcher (bypassing Jio's `Relax SCAN_REQUIRE_KNOWN` reboot reset via `pm uninstall --user 0`), Monet/Projectivy setup, forced Dark Mode, remote hotkey remapping (`TVHome.apk`), and **JioTV+ v6 upgrade guide with any-ISP mobile OTP login**. |
+| 📦 **[`FIRMWARE_CATALOG.md`](FIRMWARE_CATALOG.md)** | **45+ Verified Official Firmware Packages & Direct Download Links:** Complete archive of Akamai URLs covering Franklin (`JHSD200`, `JHSC200v2`, `JHSC200v3`), Legacy SDMC (`DV8545-Cn2`), 4K OTT STBs (`MSTB` A/B updates), Hotel builds (`*-H`), Jio Smart Displays (`curie`), and Media Hubs (`MCM3000`). |
+| 🤖 **[`AGENTS.md`](AGENTS.md)** | **Autonomous AI Agent Runbook:** Machine-actionable protocols for AI agents (Claude Code, GPT, Antigravity) to autonomously detect hardware revisions, run 1-click ADB unlocks, and execute debloating. |
+| 🛡️ **[Anti-Brick Safety Matrix](#-anti-brick-architecture--safety-guidelines)** | Full architectural breakdown explaining why standard non-destructive TR-069 RPCs prevent bricking your box. |
+| 🌐 **[Community & Credits](#-credits--acknowledgements)** | Acknowledgments, source references, and upstream research from OnlyTech Forums, GitHub, and XDA. |
 
 ---
 
 ## 📥 Downloading & Running the Toolkit
 
-### Recommended: Clone via Git (Bypasses Windows Defender SmartScreen)
+### Recommended: Clone via Git (Bypasses SmartScreen False-Positives)
 If you download the repository as a `.zip` from GitHub, Windows Defender or SmartScreen may flag it as a generic false-positive (e.g., `Trojan:Script/Wacatac.B!ml`). This happens because the ZIP contains automated administrative batch scripts (`.bat` / `.ps1`) that reconfigure network adapters, bind local ports (53, 8443), and bundle Android tools (`adb.exe`).
 
 To avoid download blocks completely, clone directly using Git:
@@ -72,77 +79,218 @@ cd jiostb
 
 ---
 
-## 🚀 1-Click Launchers
+## 🚀 1-Click ADB Unlock Launchers
 
 > [!TIP]
-> **Zero Manual Setup Required:** All 1-click `.bat` launchers now include automated self-healing dependency checks. If `pycryptodome`, `requests`, or `urllib3` are missing, the launcher automatically installs them via pip on first run! (Manual install: `pip install -r requirements.txt`).
+> **Zero Manual Setup Required:** All 1-click `.bat` launchers include automated self-healing dependency checks. If `pycryptodome`, `requests`, or `urllib3` are missing, the launcher automatically installs them via pip on first run! (Manual install: `pip install -r requirements.txt`).
 
-### Module 1: Permanent ADB Unlock (No Docker / Zero Dependencies)
+### Method A: Direct Ethernet Mode (Recommended — Fast & 100% Reliable)
 
-#### A. Direct Ethernet Mode (Recommended)
-1. **Network Setup:**
-   * Keep your **PC / Laptop connected to Wi-Fi / Internet** (required for Online Relay Mode to fetch live Undertow challenge nonces from Reliance Jio's live ACS).
-   * Connect an RJ45 Ethernet cable **directly between PC and STB** (the STB must be isolated from your home router/WAN).
-2. Double click **`UNLOCK_ADB_ETHERNET.bat`** (Accept Admin prompt).
+Direct Ethernet mode creates an isolated, deterministic network between your PC and the STB, completely bypassing home router firewall rules and Wi-Fi interference.
+
+1. **Network Cabling:**
+   * Keep your **PC connected to Wi-Fi / Internet** (if using Online Relay Mode to relay live Undertow challenge nonces from Reliance Jio's live ACS; see [FAQ #3](#3-do-i-need-an-active-jiofiber-connection-for-online-mode-vs-offline-mode) for 100% offline usage).
+   * Connect an RJ45 Ethernet cable **directly between your PC's Ethernet port and the Jio STB** (do NOT plug the cable into your home router).
+2. Double-click **`UNLOCK_ADB_ETHERNET.bat`** (Accept the Windows UAC Administrator prompt).
 3. **Select your STB Model Family:**
    * Enter `1` for **JMS Series** (`JMSD200A`, `JMSC200A`, `JMSB200A` / AirFiber) $\to$ loads `acs_chain.pem` (RILROOTCA pin).
-   * Enter `2` for **JHS Series** (`JHSD200`, `JHSC200`, `JHSB200` / JioOS 2.0) $\to$ loads `forged_chain.pem` (eMudhra chain).
+   * Enter `2` for **JHS Series** (`JHSD200`, `JHSC200`, `JHSB200`, Skyworth `21.1.14` / JioOS 2.0) $\to$ loads `forged_chain.pem` (eMudhra chain).
 4. **Cold Power-Cycle the STB:**
-   * Unplug the 12V DC power cable directly from the back of the STB (do not use the remote control).
+   * Unplug the 12V DC power cable from the back of the STB.
    * Wait 5 seconds $\to$ Reconnect power.
 5. **Patience Window (Leave Console Running for 1–2 Minutes):**
-   * Early connections on `[:443]` with `closed by peer` are standard Android OS background telemetry.
-   * The actual TR-069 service (`com.jio.tr069client`) initializes on port **`[:8443]`** roughly **45 to 60 seconds after power-on**.
+   * Early connections on port `[:443]` with `closed by peer` are standard Android OS background telemetry.
+   * The actual TR-069 service (`com.jio.tr069client`) initializes on port **`[:8443]`** (or `[:9443]`) roughly **45 to 60 seconds after power-on**.
    * The lab terminates TLS, synchronizes the STB clock to 2026 via NTP, relays authentication nonces, and injects `Device.JioSTB.USB.USBDebugging = true` (valid until 2037).
-6. Once complete, connect via ADB from any terminal:
-   ```cmd
-   adb connect 192.168.50.2:5555
-   ```
+6. **Success Banner & Connection:**
+   * As soon as the command is accepted, an ASCII banner will appear:
+     ```text
+     ======================================================================
+       🎉 SUCCESS: JIO STB ADB IS FULLY UNLOCKED!
+       Device: Droidlogic JHSD200 (STB IP: 192.168.50.2:5555)
+
+       ACTION REQUIRED ON YOUR TV SCREEN RIGHT NOW:
+       1. Turn on your TV screen.
+       2. A popup dialog will appear: "Allow USB debugging?".
+       3. Check "Always allow from this computer" with your remote.
+       4. Select "Allow" / "OK".
+     ======================================================================
+     ```
+   * Open a second terminal or run `.\1CLICK_POST_ADB_SETUP.bat` to complete setup!
 
 > [!NOTE]
 > **Automated Port 443 Blocking & Zero TLS Noise:**
-> While waiting for TR-069 on ports 8443 or 9443, background Android apps on the STB (Google Play Services, analytics, ad engines) probe the network on port 443 with public CAs (`SSLV3_ALERT_CERTIFICATE_UNKNOWN`).
-> The toolkit now handles this automatically at every level:
-> 1. **Automated Windows Firewall:** The lab scripts automatically configure a kernel-level inbound block rule for TCP port 443 (`LocalLab-Block-Port443` / `LocalLab-WifiHotspot-Block-Port443`), dropping 443 noise before it reaches user space.
-> 2. **Server Ports:** `mock_acs_universal.py` and `mock_acs.py` bind strictly to TR-069 CWMP ports (`8443`, `9443`, `7443`, `7547`, `8080`) and no longer listen on 443 by default.
-> Manual Windows Firewall adjustments are completely eliminated. The moment the STB connects to port 8443/9443, a prominent **`🎉 SUCCESS: JIO STB ADB IS FULLY UNLOCKED!`** banner will display!
->
-> **Do I need `QUERY_JIO_ACS.bat`?**
-> No! `QUERY_JIO_ACS.bat` is an advanced cloud-research tool for querying Jio's remote servers across an active JioFiber WAN. It is **not** used for unlocking local STBs. All local unlocks use `UNLOCK_ADB_ETHERNET.bat` or `UNLOCK_ADB_WIFI.bat`.
+> Background Android apps on the STB (Google Play Services, analytics, ad engines) probe the network on port 443 with public CAs (`SSLV3_ALERT_CERTIFICATE_UNKNOWN`). The toolkit automatically creates a kernel-level inbound firewall block rule (`LocalLab-Block-Port443`), dropping this noise before it reaches user space.
 
-#### B. Wi-Fi Hotspot Mode (For PCs without Ethernet)
+---
+
+### Method B: Wi-Fi Hotspot Mode (For Laptops without Ethernet)
+
+If your laptop does not have an Ethernet port and you do not have a USB-to-Ethernet adapter:
+
 1. Open Windows Settings $\to$ **Network & internet** $\to$ **Mobile hotspot**.
 2. Configure SSID: `JioSTB-Setup`, Password: `password123`, Band: **2.4 GHz**.
 3. Toggle Mobile Hotspot to **ON**.
    > [!TIP]
-   > **Windows 11 Internet Sharing Requirement:**
-   > Windows 11 strictly requires an active internet connection to enable Mobile Hotspot. If your PC has no internet, temporarily connect it to your mobile phone's hotspot or home Wi-Fi first, turn Windows Mobile Hotspot **ON**, and then proceed. (See [FAQ #4](#4-windows-11-mobile-hotspot-fails-says-no-internet-to-share-or-wi-fi-loops-onoff-hp-victus--amd--mediatek-mt7921) if using HP Victus / AMD / MediaTek Wi-Fi).
-4. Double click **`UNLOCK_ADB_WIFI.bat`** (Accept Admin prompt).
-5. Connect the STB to `JioSTB-Setup` and cold-reboot it (unplug 12V DC power $\to$ wait 5s $\to$ replug).
-6. Connect via ADB to the assigned IP logged in console:
+   > Windows 11 strictly requires an active internet connection to enable Mobile Hotspot. Connect your PC to your mobile phone's hotspot or home Wi-Fi first, turn Windows Mobile Hotspot **ON**, and then proceed. (See [FAQ #4](#4-windows-11-mobile-hotspot-fails-says-no-internet-to-share-or-wi-fi-loops-onoff-hp-victus--amd--mediatek-mt7921) if using HP Victus / AMD / MediaTek Wi-Fi).
+4. Double-click **`UNLOCK_ADB_WIFI.bat`** (Accept Admin prompt).
+5. Select your model family (`1` or `2`).
+6. Connect the STB to the `JioSTB-Setup` Wi-Fi network and cold-reboot it (unplug 12V DC power $\to$ wait 5s $\to$ replug).
+7. Connect via ADB to the assigned IP logged in the console:
    ```cmd
    adb connect 192.168.137.x:5555
    ```
 
 ---
 
+## 📺 Post-ADB Setup: Debloating & Android TV Ecosystem
+
+Once ADB is unlocked, customize your Jio STB into a clean, ad-free Google TV / Android TV experience!
+
+Double-click **`1CLICK_POST_ADB_SETUP.bat`** (or run `python post_adb_setup.py`). The script automatically connects, detects your STB model, debloats unwanted packages, and installs the TV companion ecosystem.
+
+### Bundled Companion TV Apps (in `apks/`):
+
+| Companion App | Purpose & Features |
+| :--- | :--- |
+| 🚀 **`ProjectivyLauncher.apk`** | Premium Leanback Google TV / Apple TV-style launcher. Features channel rows, "Watch Next" queue, customizable categories, and 100% remote control navigation. |
+| 🎨 **`monet-launcher.apk`** | Ultra-lightweight Material You Android TV launcher for maximum performance. |
+| 🛍️ **`AptoideTV.apk`** | **Official Leanback Android TV App Store:** Serves remote-friendly, 10-ft TV APKs exclusively. Replaces phone/tablet app stores that crash or fail D-Pad navigation. |
+| 🌐 **`TVBro.apk`** | **Open-Source TV Web Browser & APK Downloader:** Full remote-control navigation, built-in ad blocker, and direct APK download manager. |
+| 🔀 **`stn_bridge_atv.apk`** | **SmartTube Intent Bridge:** Intercepts official YouTube Leanback intents and routes them directly to SmartTube for ad-free playback. |
+| 🎮 **`TVHome.apk` (CleanYourTV)** | Dedicated remote hotkey mapper: remap Netflix, Hotstar, Prime, and physical Mic/Voice buttons to launch custom apps. |
+| ⚙️ **`AndroidSettingsShortcut.apk`** | Direct launcher for native Android TV Settings (`com.android.tv.settings`) — used for Bluetooth audio pairing, Wi-Fi configuration, and Developer Options. |
+| 📺 **`mediashell.apk`** | Production Google Cast receiver update enabling genuine Chromecast built-in streaming. |
+| 📱 **`OpenShelf-0.7.0.apk`** | FOSS Android TV App Store connecting directly to GitHub releases. |
+| 🐚 **`shevery-release.apk`** | On-device Shizuku shell (`uid=2000`) for PC-free package management. |
+
+### Restoring Google Cast (Chromecast Built-in)
+Stock Jio firmware ships `com.google.android.apps.mediashell` as an empty **0 MB placeholder stub** (`v0.0`, `versionCode=1`) in `/product/priv-app`. As a result, casting from smartphones or Chrome fails with `ClassNotFoundException`.
+
+The setup script automatically sideloads the official production update:
+```bash
+adb install -r apks/mediashell.apk
+```
+The STB immediately registers with Google Cast client ID and broadcasts across your local Wi-Fi network as a genuine Chromecast built-in receiver (e.g. "Living Room TV").
+
+> [!TIP]
+> For complete instructions on permanently replacing the iWedia launcher, configuring custom button mappings, and logging into JioTV+ on any non-Jio ISP using mobile OTP, see the **[`DEBLOAT_GUIDE.md`](DEBLOAT_GUIDE.md)**!
+
+---
+
+## ❓ Frequently Asked Questions & Troubleshooting
+
+### 1. The Mock ACS console is silent or the handshake is not recognized?
+* **Windows Defender / Antivirus Firewall:**  
+  Windows Defender Firewall (or third-party suites like **Quick Heal**, **McAfee**, **Norton**, **Bitdefender**) is dropping inbound traffic on ports **`53`** (DNS), **`123`** (NTP), **`8443`**, and **`9443`** (TR-069).
+  * **Fix:** Temporarily **turn OFF Windows Defender Firewall** (and pause third-party antivirus shields for 15 minutes) while running the unlock script. Once ADB is unlocked, re-enable it.
+* **Cold Reboot Required:**  
+  Did you pull the physical 12V DC power plug? Soft-rebooting via remote control does not re-trigger TR-069.
+* **Model Selection:**  
+  Ensure you picked Option `1` for JMS / AirFiber boxes or Option `2` for JHS / JioOS 2.0 boxes. Skyworth `JMSC200A` on firmware `21.1.14` uses Option `2`.
+
+---
+
+### 2. What STB IP address should I connect to with ADB?
+Look at the incoming connection lines in your Mock ACS terminal:
+```text
+[15:35:35] 192.168.5.69:32786 [:9443] ...
+```
+* In Direct P2P Ethernet mode, the default STB IP is `192.168.50.2`.
+* In Wi-Fi Hotspot mode, the STB is assigned `192.168.137.x`.
+* If connected via your home router or switch, the STB gets an IP from your router (e.g. `192.168.5.69` or `192.168.29.x`).
+* **Always use the STB IP displayed in the console success banner:**
+  ```cmd
+  adb connect <YOUR_STB_IP>:5555
+  ```
+
+---
+
+### 3. Do I need an active JioFiber connection for Online Mode vs. Offline Mode?
+
+* **Online Relay Mode (Variant 1):**
+  * **Requires an active JioFiber connection.**
+  * The upstream Jio ACS server (`acs.oss.jio.com` $\to$ `49.40.134.113:8443`) is an **internal private Jio IP** reachable only through JioFiber. Non-Jio ISPs cannot route to `49.40.134.113`.
+* **Offline Standalone Mode (Variant 2 - Default Auto-Fallback):**
+  * **Requires ZERO Jio connection and ZERO internet access!**
+  * If your PC is offline, connected to a non-Jio ISP (Airtel, ACT, mobile hotspot), or plugged directly into the STB via an isolated Ethernet cable, the toolkit automatically falls back to **100% Offline Standalone Mock ACS**.
+  * It generates authentic Undertow MD5 nonces locally, mimics Jio's CWMP server, and injects `Device.JioSTB.USB.USBDebugging = true` completely offline.
+  * You can unlock your STB anywhere on any computer without needing an active JioFiber subscription!
+
+---
+
+### 4. Windows 11 Mobile Hotspot fails, says "No Internet to share", or Wi-Fi loops ON/OFF (HP Victus / AMD / MediaTek MT7921)?
+
+#### Why this happens:
+1. **Windows 11 Internet Sharing Dependency:** Windows 11 Mobile Hotspot relies on Internet Connection Sharing (ICS). If the PC is completely offline, Windows 11 blocks hotspot creation with *"We can't set up mobile hotspot because your PC doesn't have an Ethernet, Wi-Fi, or cellular data connection."*
+2. **Wi-Fi On/Off Looping on HP Victus AMD:** HP Victus 16 AMD laptops commonly ship with **MediaTek MT7921 / MT7922 (AMD RZ608/RZ616)** or **Realtek RTL8852AE/BE** Wi-Fi cards. Modern Windows 11 WDI/NDIS 6.5+ drivers deprecate legacy Hosted Network. When legacy SoftAP commands are issued or driver crashes occur, Windows Plug-and-Play resets the Wi-Fi card in an infinite loop.
+
+#### Solutions & Workarounds:
+* **Option A: Use Direct P2P Ethernet (`UNLOCK_ADB_ETHERNET.bat`) — Most Reliable:**  
+  Ethernet requires **zero Wi-Fi drivers, zero internet access, and zero ICS**. It creates an isolated static subnet (`192.168.50.1`), completely bypassing Windows Hotspot bugs.
+* **Option B: Connect PC to Phone Hotspot First:**  
+  Connect your PC to your phone's hotspot or home Wi-Fi first so Windows 11 sees an active internet connection, toggle Windows Mobile Hotspot to **ON**, and then run `UNLOCK_ADB_WIFI.bat`.
+* **Option C: Fix Wi-Fi Looping in Device Manager:**  
+  Open **Device Manager** $\to$ **Network adapters** $\to$ Right-click **MediaTek Wi-Fi 6 (MT7921/RZ608)** $\to$ **Properties** $\to$ **Power Management** $\to$ **Uncheck** *"Allow the computer to turn off this device to save power"*.
+
+---
+
+### 5. I see `closed by peer` or `SSLV3_ALERT_CERTIFICATE_UNKNOWN` on port 443 — did it fail?
+**No, it did NOT fail.**
+* Early boot connections on port 443 are background Android apps (Google Play Services, analytics, ad engines) trying to reach external HTTPS servers.
+* The actual TR-069 management service (`com.jio.tr069client`) connects on port **`8443`** (JMS Series) or **`9443`** (JHS Series) roughly **45 to 60 seconds after power-on**.
+* The toolkit's automated Windows firewall block silently drops port 443 noise. Leave the console open for 1–2 minutes after power-cycling until the success banner appears!
+
+---
+
+### 6. Why does `QUERY_JIO_ACS.bat` fail with `ConnectTimeoutError` (49.40.134.113)?
+* **`QUERY_JIO_ACS.bat` is NOT required for local STB unlocking!**
+* `QUERY_JIO_ACS.bat` is an advanced cloud-research tool that queries Reliance Jio's remote servers across an active JioFiber WAN. All local unlocks use `UNLOCK_ADB_ETHERNET.bat` or `UNLOCK_ADB_WIFI.bat`.
+
+---
+
+### 7. How to Read the Diagnostic Logs & Open a GitHub Issue
+If your STB does not unlock after 2 minutes, check the 3 diagnostic log files generated automatically in the toolkit root folder:
+
+| Log File | What It Records |
+| :--- | :--- |
+| **`mock_acs.log`** | TCP connections, TLS handshakes, target ports (`:443`, `:8443`, `:9443`), and TR-069 session lifecycle. |
+| **`captive_lab.log`** | DHCP IP leases (`192.168.50.2`), NTP time sync (setting STB clock to 2026), DNS spoofing resolutions, and HTTP 204 captive portal requests. |
+| **`mock_acs_packets.log`** | Full decrypted XML packet dump of all TR-069 `cwmp:Inform`, Digest Authentication handshakes, and `SetParameterValues` RPC responses. |
+
+To open an issue:
+1. Go to [Issues $\to$ New Issue](https://github.com/krishnasen2401/jiostb/issues/new).
+2. Specify your **Model** (e.g. `JHSD200 v2/v5` or `JMSD200A`) and firmware version.
+3. Attach `mock_acs.log`, `captive_lab.log`, and `mock_acs_packets.log` directly into the issue.
+
+---
+
+### Stopping Labs & Cleaning Ports
+Whenever you finish testing, double-click **`STOP_ALL_LABS.bat`** to terminate all background listeners, free ports (`53, 67, 80, 123, 443, 7443, 8443, 9443`), and restart Windows Time Service (`w32time`).
+
+---
+
+## 🔬 Advanced Research & Firmware Capture Labs
+
 ### Module 2: Firmware Capture & TR-069 MITM Lab
 
+Intercept OTA firmware packages as they are offered by Jio's production ACS:
+
 #### A. Ethernet MITM Mode
-1. Double click **`CAPTURE_FIRMWARE_ETHERNET.bat`** (or `RUN_ETHERNET_LAB.bat`).
+1. Double-click **`CAPTURE_FIRMWARE_ETHERNET.bat`** (or `RUN_ETHERNET_LAB.bat`).
 2. On the STB, navigate to **Settings** $\to$ **System Settings** $\to$ **Software Update**.
 3. The lab intercepts the update check, dynamically spoofs the software version specified in `spoofed_version.txt`, and relays to Jio's live ACS.
 4. When ACS offers an update, the download URL is captured and saved to `fota_firmware_url.txt` and `fota_update_found.json`.
 
 #### B. Wi-Fi Hotspot MITM Mode
 1. Turn on Windows Mobile Hotspot.
-2. Double click **`CAPTURE_FIRMWARE_WIFI.bat`** (or `RUN_WIFI_HOTSPOT_LAB.bat`).
+2. Double-click **`CAPTURE_FIRMWARE_WIFI.bat`** (or `RUN_WIFI_HOTSPOT_LAB.bat`).
 3. Connect the STB and trigger a software update check.
 
 ---
 
 ### Module 3: Standalone PC Query Tool (No STB Hardware Needed!)
-1. Double click **`QUERY_JIO_ACS.bat`**.
+1. Double-click **`QUERY_JIO_ACS.bat`**.
 2. Enter the target software version to test (e.g. `STB-JHSD200-11.1.0` or press Enter for default).
 3. The script computes the CPE HTTP Digest authentication formula (`ro.acsdata` + native secret key), opens a CWMP session directly with Jio's real ACS (`https://49.40.134.113:8443/ftacs-digest/ACS`), and prints all server directives.
 
@@ -178,77 +326,59 @@ When a new firmware update is intercepted, the lab saves the URL to `fota_update
 
 ---
 
-### Module 6: Debloating, Settings Shortcuts & Hotkeys Guide
-Detailed step-by-step instructions to uninstall stock Jio launcher, ads, and telemetry while configuring **Projectivy Launcher**, native **Android TV Settings**, **CleanYourTV remote hotkeys**, and **Bluetooth Voice Remote pairing & Mic button remapping** are documented in [`DEBLOAT_GUIDE.md`](DEBLOAT_GUIDE.md).
+## 🌟 Discovered Official Firmware Packages (Direct Downloads)
 
-Prebuilt companion APKs are included in [`apks/`](apks/):
-* `ProjectivyLauncher.apk`: Highly customizable, premium Google TV/Apple TV-style Leanback launcher with channel rows & "Watch Next" support.
-* `monet-launcher.apk`: Ultra-lightweight Material You Android TV launcher.
-* `KeyMapper.apk`: Powerful open-source button & remote remapping utility.
-* `TVHome.apk`: CleanYourTV remote hotkey mapper (remap Netflix, Hotstar, Prime, and physical Mic/Voice button).
-* `OpenShelf-0.7.0.apk`: FOSS Android TV App Store connecting directly to GitHub releases.
-* `AndroidSettingsShortcut.apk`: Direct launcher for native Android TV Settings (`com.android.tv.settings`) — used for Bluetooth remote & audio pairing, Wi-Fi, and Developer Options.
-* `JioSettingsShortcut.apk`: Standalone launcher for Jio Settings (`com.rjil.jiostbsetting`).
-* `shevery-release.apk`: On-device Shizuku shell (`uid=2000`) for PC-free management.
-* `AptoideTV.apk`: Dedicated Android TV App Store serving remote-friendly, 10-ft TV APKs (avoids phone/tablet APK mismatches).
-* `TVBro.apk`: Open-source Android TV web browser with built-in ad blocker and download manager.
-* `stn_bridge_atv.apk`: SmartTube intent bridge routing official YouTube TV calls directly to SmartTube.
-* `mediashell.apk`: Production Google Cast receiver update enabling genuine Chromecast built-in streaming.
+All firmware images listed below are directly hosted on Reliance Jio's public Akamai NetStorage servers without authentication.
 
----
+### 1. Jio Set-Top Boxes (STBs)
+| Model / Codename | Version | Android Version | Package Size | Direct Download Link | Notes |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **JHS D200 v2 / v5** (`franklin_bluebank`) | `11.3.46` | **Android 11** | **792.3 MB** | [Download qdOdPlaXso.zip](http://fota.slv.kai.jiophone.net/BHTS/DIN995/B002D_346/qdOdPlaXso.zip) | **Full block OTA** containing `boot.img`, `recovery.img`, `bootloader.img`, `super_empty_all.img`, `system.new.dat.br`, `vendor.new.dat.br` |
+| **JHS D200 v1** (`franklin`) | `5.7.1` | **Android 9 (Pie)** | **533.3 MB** | [Download STB-JHSD200-5.7.1.zip](http://fota.slv.fxd.jiophone.net/STB/Droidlogic/JHSD200/STB-JHSD200-5.7.1.zip) | Full block Android 9 OTA package for D200 v1 |
+| **JHS C200** (`DV8545-Cn2`) | `5.7.1` | **Android 9 (Pie)** | **532.0 MB** | [Download STB-JHSC200-5.7.1.zip](http://fota.slv.fxd.jiophone.net/STB/SDMC/STB-JHSC200-5.7.1.zip) | Full block Android 9 OTA package for SDMC C200 |
 
-### Module 7: Google Cast / Chromecast Built-in Restoration
+### 2. JioFiber ONTs / Routers
+| Model | Manufacturer | Version | Size | Direct Download Link | Notes |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **JCOW411** | Arcadyan | `R2.3` | **69.4 MB** | [Download ARCNTF1_JCOW411_R2.3.img](http://fota.slv.fxd.jiophone.net/ONT/Arcadyan/JCOW411/ARCNTF1_JCOW411_R2.3.img) | Unencrypted `.img` release firmware |
+| **JCOW404** | Sercomm | `R2.3` | **69.0 MB** | [Download SRCMTF1_JCOW404_R2.3.img](http://fota.slv.fxd.jiophone.net/ONT/Sercomm/JCOW404/SRCMTF1_JCOW404_R2.3.img) | Unencrypted `.img` release firmware |
+| **JCOW401** | Arcadyan | `R1.34` | **63.1 MB** | [Download ARCTF1_JCOW401_R1.34.img](http://fota.slv.fxd.jiophone.net/ONT/Arcadyan/JCOW401/ARCTF1_JCOW401_R1.34.img) | Unencrypted `.img` release firmware |
+| **JCO110** | Arcadyan | `R1.130` | **55.4 MB** | [Download ARCTF1_JCO110_R1.130.img](http://fota.slv.fxd.jiophone.net/ONT/Arcadyan/JCO110/ARCTF1_JCO110_R1.130.img) | Unencrypted `.img` release firmware |
 
-Stock Jio firmware ships `com.google.android.apps.mediashell` as an empty **0 MB placeholder stub** (`v0.0`, `versionCode=1`) in `/product/priv-app`. As a result, casting from smartphones, tablets, or Chrome fails with `ClassNotFoundException: CastReceiverProxyService`.
-
-To restore full Google Cast functionality:
-1. Sideload the captured official production update bundled in [`apks/`](apks/):
-   ```bash
-   adb install -r apks/mediashell.apk
-   ```
-2. Verify that `CastReceiverService` is active:
-   ```bash
-   adb shell dumpsys activity services com.google.android.apps.mediashell
-   ```
-3. The STB immediately registers with Google Cast client ID and broadcasts across your local Wi-Fi network as a genuine Chromecast built-in receiver (e.g. "Living Room TV"). Keep `com.jio.dialserver` enabled for DIAL app discovery (Netflix, YouTube).
+*(Over 45+ verified official firmware packages across Franklin JHSD200/JHSC200, SDMC DV8545, 4K OTT MSTB, Hotel variants, and Jio Smart Displays cataloged with direct download links in [`FIRMWARE_CATALOG.md`](FIRMWARE_CATALOG.md))*
 
 ---
 
-### Stopping Labs & Cleaning Ports
-Whenever you finish testing, double click **`STOP_ALL_LABS.bat`** to terminate all background listeners, free ports (`53, 67, 80, 123, 443, 7443, 8443, 9443`), and restart Windows Time Service (`w32time`).
+## 🛡️ Anti-Brick Architecture & Safety Guidelines
 
----
+This toolkit is engineered with strict non-destructive safety guardrails to ensure **zero brick risk** during normal operation:
 
-## 🔍 Troubleshooting, Diagnostic Logs & Issue Reporting
+### 1. Why the 1-Click ADB Unlock is 100% Safe
+* The scripts (`UNLOCK_ADB_ETHERNET.bat`, `UNLOCK_ADB_WIFI.bat`, and `mock_acs_universal.py`) use standard, vendor-sanctioned TR-069 / TR-181 management RPCs (`Device.JioSTB.USB.USBDebugging`, `DebugValidityDate`, and `DowngradeEnable`).
+* **Zero bootloader tampering:** These RPCs do not touch U-Boot environment variables (`/dev/block/env`), do not repartition eMMC storage, and do not flash unsigned kernel images.
+* Even if your computer powers off or disconnects midway, the STB simply stays on its stock firmware without any corruption.
 
-### 1. Understanding What the Console Logs Mean
-When running `UNLOCK_ADB_ETHERNET.bat`, the terminal logs connection events. Here is how to interpret them:
+### 2. The Native Root Hook (`Device.JioSTB.Debugging.CommandLine`)
+* Both **SDMC (JHS C200)** and **Droidlogic (JHS D200 / franklin)** contain a diagnostic on-boot command execution hook inside `libtr069client.so` and `TR069ClientService.apk`:
+  * `Device.JioSTB.Debugging.CommandLine.Enable`
+  * `Device.JioSTB.Debugging.CommandLine.OnBootExecuteCmd`
+  * `Device.JioSTB.Debugging.CommandLine.ValidityDate`
+  * `Device.JioSTB.Debugging.CommandLine.SaveToFile`
+* **Why our toolkit does NOT execute arbitrary CommandLine commands by default:**
+  * Running arbitrary commands via the native daemon carries significant brick risks in the hands of casual users (e.g. partition corruption or boot loops).
+  * Standard ADB unlock via `USBDebugging = true` achieves 100% sideloading, customization, and debloating capabilities safely within standard user/shell security boundaries without risking bricking.
 
-* **`TLS ok ... [:443]` followed by `closed by peer`:**  
-  🟢 **Normal & Harmless.** During early boot, Android's NetworkMonitor checks captive portals and background apps (Firebase/Facebook SDK) probe HTTPS. Because our mock ACS terminates TLS with the STB's trusted root certificate, the TLS handshake succeeds (`TLS ok`). The background app then closes the connection (`closed by peer`) because it did not reach `google.com`.
-* **Where is TR-069? Look for Port `[:8443]`:**  
-  The STB TR-069 management daemon (`com.jio.tr069client`) does **not** connect to port 443. It connects strictly to **port `8443`** (or fallback `9443`) **45 to 60 seconds after power-on** (once the launcher loads).
-* **Patience Window (Do Not Close Early):**  
-  Always keep the terminal windows open and untouched for at least **1 to 2 minutes** after cold power-cycling the STB.
+### 3. Golden Rules to Prevent Bricking Your Box
 
-### 2. The 3 Mandatory Diagnostic Log Files
-Whenever diagnosing an issue or opening a GitHub ticket, please refer to the 3 log files generated automatically in the toolkit root folder:
-
-| Log File | What It Records |
-| :--- | :--- |
-| **`mock_acs.log`** | TCP connections, TLS handshakes, target ports (`:443`, `:8443`, `:9443`), and TR-069 session lifecycle. |
-| **`captive_lab.log`** | DHCP IP leases (`192.168.50.2`), NTP time sync (setting STB clock to 2026), DNS spoofing resolutions, and HTTP 204 captive portal requests. |
-| **`mock_acs_packets.log`** | Full decrypted XML packet dump of all TR-069 `cwmp:Inform`, Digest Authentication handshakes, and `SetParameterValues` RPC responses. |
-
-### 3. How the Online Relay Engine Works
-* **Your PC should be connected to Wi-Fi / Internet** while running the Ethernet unlock lab.
-* **Why?** When the STB boots and sends its `Inform`, our lab talks to Reliance Jio's production ACS (`49.40.134.113:8443`) in real time through your PC's Wi-Fi. It retrieves genuine Undertow server challenge nonces, relays them to the STB over the Ethernet cable, lets the STB compute the valid hash, and then **hijacks the authenticated session** to inject the permanent ADB unlock commands!
-
-### 4. Opening a GitHub Issue
-If your STB does not unlock after 2 minutes:
-1. Go to [Issues $\to$ New Issue](https://github.com/krishnasen2401/jiostb/issues/new).
-2. Specify your **Model** (e.g. `JHSD200 v2/v5` or `JMSD200A`) and firmware version.
-3. Attach the 3 log files (`mock_acs.log`, `captive_lab.log`, `mock_acs_packets.log`) directly into the issue box.
+| Action | Risk Level | Safe Recommendation |
+|---|---|---|
+| **1-Click ADB Unlock (`mock_acs_universal.py`)** | 🟢 **Zero Risk** | Safe for all users on all firmware versions. |
+| **Sideloading Launchers & APKs** | 🟢 **Zero Risk** | Completely safe via `adb install`. |
+| **Disabling Bloatware / Iwedia Updaters** | 🟢 **Zero Risk** | Safe via `pm disable-user --user 0`. Reversible at any time. |
+| **Disabling `com.jio.tr069client` on JHS boxes** | 🟡 **Moderate** | **Do NOT disable** on JHS models (`JHSC200`, `JHSD200`)! It kills network ADB persistence across reboots. |
+| **Running `adb shell reboot update` with USB Linux** | 🟡 **Recovery Drop** | Unsigned kernels are rejected by locked U-Boot, dropping the box into Android Recovery (`failed to mount /sdcard`). |
+| **Raw Partition Overwrite (`dd if=... of=/dev/block/...`)** | 🔴 **High Brick Risk** | **Never write raw images** to boot, recovery, or system partitions. Production bootloaders enforce signature checks. |
+| **Stage 2 Bootloader Unlock (`unlock.sh` / CVE-2024-31317)** | 🔴 **High Brick Risk** | Do not attempt unless you have serial UART console logs and eMMC flash recovery backups. |
 
 ---
 
@@ -385,6 +515,7 @@ jio-fota-toolkit/
 │   └── mediashell.apk                 # Production Google Cast receiver update
 │
 ├── 🔑 forged_chain.pem                 # Verified TLS intermediate chain
+├── 🔑 acs_chain.pem                    # RILROOTCA root certificate chain
 ├── ⚙️ spoofed_version.txt              # Target version to spoof (model presets inside)
 ├── 📦 requirements.txt                 # pycryptodome, requests, urllib3
 │
@@ -400,120 +531,6 @@ jio-fota-toolkit/
     ├── start-wifi-lab.ps1
     └── stop-labs.ps1
 ```
-
----
-
-## 🛡️ Anti-Brick Architecture & Safety Guidelines
-
-This toolkit is engineered with strict non-destructive safety guardrails to ensure **zero brick risk** during normal operation:
-
-### 1. Why the 1-Click ADB Unlock is 100% Safe
-* The scripts (`UNLOCK_ADB_ETHERNET.bat`, `UNLOCK_ADB_WIFI.bat`, and `mock_acs_universal.py`) use standard, vendor-sanctioned TR-069 / TR-181 management RPCs (`Device.JioSTB.USB.USBDebugging`, `DebugValidityDate`, and `DowngradeEnable`).
-* **Zero bootloader tampering:** These RPCs do not touch U-Boot environment variables (`/dev/block/env`), do not repartition eMMC storage, and do not flash unsigned kernel images.
-* Even if your computer powers off or disconnects midway, the STB simply stays on its stock firmware without any corruption.
-
-### 2. The Native Root Hook (`Device.JioSTB.Debugging.CommandLine`)
-* Both **SDMC (JHS C200)** and **Droidlogic (JHS D200 / franklin)** contain a diagnostic on-boot command execution hook inside `libtr069client.so` and `TR069ClientService.apk`:
-  * `Device.JioSTB.Debugging.CommandLine.Enable`
-  * `Device.JioSTB.Debugging.CommandLine.OnBootExecuteCmd`
-  * `Device.JioSTB.Debugging.CommandLine.ValidityDate`
-  * `Device.JioSTB.Debugging.CommandLine.SaveToFile`
-* **Why our toolkit does NOT execute arbitrary CommandLine commands by default:**
-  * Running arbitrary commands via the native daemon carries significant brick risks in the hands of casual users (e.g. partition corruption or boot loops).
-  * Standard ADB unlock via `USBDebugging = true` achieves 100% sideloading, customization, and debloating capabilities safely within standard user/shell security boundaries without risking bricking.
-
-### 3. Golden Rules to Prevent Bricking Your Box
-
-| Action | Risk Level | Safe Recommendation |
-|---|---|---|
-| **1-Click ADB Unlock (`mock_acs_universal.py`)** | 🟢 **Zero Risk** | Safe for all users on all firmware versions. |
-| **Sideloading Launchers & APKs** | 🟢 **Zero Risk** | Completely safe via `adb install`. |
-| **Disabling Bloatware / Iwedia Updaters** | 🟢 **Zero Risk** | Safe via `pm disable-user --user 0`. Reversible at any time. |
-| **Disabling `com.jio.tr069client` on JHS boxes** | 🟡 **Moderate** | **Do NOT disable** on JHS models (`JHSC200`, `JHSD200`)! It kills network ADB persistence across reboots. |
-| **Running `adb shell reboot update` with USB Linux** | 🟡 **Recovery Drop** | Unsigned kernels are rejected by locked U-Boot, dropping the box into Android Recovery (`failed to mount /sdcard`). |
-| **Raw Partition Overwrite (`dd if=... of=/dev/block/...`)** | 🔴 **High Brick Risk** | **Never write raw images** to boot, recovery, or system partitions. Production bootloaders enforce signature checks. |
-| **Stage 2 Bootloader Unlock (`unlock.sh` / CVE-2024-31317)** | 🔴 **High Brick Risk** | Do not attempt unless you have serial UART console logs and eMMC flash recovery backups. |
-
----
-
-## ❓ Frequently Asked Questions & Troubleshooting
-
-### 1. I see `SSLV3_ALERT_CERTIFICATE_UNKNOWN` or `closed by peer` on port 443 — did the unlock fail?
-**No, it did NOT fail.**
-* When the STB boots on an isolated captive network, third-party Android apps (Google Play Services, Firebase Analytics, Crashlytics, Jio ads) attempt to reach external HTTPS servers over port `443`.
-* Because those third-party apps enforce public CAs, they fail TLS handshakes.
-* Meanwhile, the actual TR-069 management service (`com.jio.tr069client`) connects on port **`9443`** (JHS Series using `forged_chain.pem`) or **`8443`** (JMS Series using `acs_chain.pem`).
-* In your `mock_acs.log`, you will see:
-  ```text
-  [INFORM] Device Info: Manufacturer=Droidlogic ProductClass=JHSD200 SerialNumber=...
-  *** SUCCESS! STB ACCEPTED Enable USBDebugging (Device.JioSTB)! ADB IS FULLY UNLOCKED! ***
-  ```
-* In the latest toolkit release, port 443 telemetry noise is silenced from the console and logged quietly to `mock_acs.log`, and an unmissable ASCII **`🎉 SUCCESS: JIO STB ADB IS FULLY UNLOCKED!`** banner will display the instant the STB accepts the command.
-
-### 2. Why does `QUERY_JIO_ACS.bat` fail with `ConnectTimeoutError` (49.40.134.113)?
-* **`QUERY_JIO_ACS.bat` is NOT required for local STB unlocking!**
-* `QUERY_JIO_ACS.bat` is an advanced research script that attempts to contact Reliance Jio's upstream cloud ACS (`49.40.134.113:8443`).
-* `49.40.134.113` is an internal private IP reachable **only over an active JioFiber WAN connection**. When your PC's Ethernet is directly plugged into the STB (`192.168.50.1`), your computer cannot route to `49.40.134.113`.
-* To unlock your STB, strictly use **`UNLOCK_ADB_ETHERNET.bat`** or **`UNLOCK_ADB_WIFI.bat`**.
-
-### 3. Is JMSD200A (Jio AirFiber / Android 11 Build 25.1.9) supported?
-**Yes, 100% verified and tested.**
-* Select **Option 1 (JMS Series)** in `UNLOCK_ADB_ETHERNET.bat`.
-* It utilizes `acs_chain.pem` (RILROOTCA pin) to unlock ADB on port `5555`.
-* Once unlocked, run `.\1CLICK_POST_ADB_SETUP.bat` to disable all background ad daemons (`com.jio.stbadservice`, `com.jio.bioscopecontentservice`, `com.jio.screensaver`), install custom launchers (Projectivy or Monet), map remote keys, and restore Google Cast.
-
-### 4. Windows 11 Mobile Hotspot fails, says "No Internet to share", or Wi-Fi loops ON/OFF (HP Victus / AMD / MediaTek MT7921)?
-
-#### Why this happens:
-1. **Windows 11 Internet Sharing Dependency:** Windows 11's Mobile Hotspot relies on the Internet Connection Sharing (ICS / `SharedAccess`) service. If the PC is completely offline, Windows 11 blocks hotspot creation with:
-   > *"We can't set up mobile hotspot because your PC doesn't have an Ethernet, Wi-Fi, or cellular data connection."*
-2. **Wi-Fi On/Off Looping on HP Victus AMD:** HP Victus 16 AMD laptops commonly ship with **MediaTek MT7921 / MT7922 (AMD RZ608/RZ616)** or **Realtek RTL8852AE/BE** Wi-Fi cards. On modern Windows 11 WDI/NDIS 6.5+ drivers, legacy `Hosted Network` is deprecated (`netsh wlan show drivers` reports `Hosted network supported: No`). When legacy Hosted Network commands are run or SoftAP fails, the MediaTek miniport driver crashes, causing Windows Plug-and-Play (PnP) to reset the hardware in an infinite ON $\to$ OFF loop.
-
-#### Solutions & Workarounds:
-* **Option A: Use Direct P2P Ethernet (`UNLOCK_ADB_ETHERNET.bat`) — Most Reliable:**
-  * Ethernet requires **zero Wi-Fi drivers, zero internet access, and zero ICS**.
-  * It creates an offline, isolated static subnet (`192.168.50.1`), completely bypassing Windows Hotspot and MediaTek driver bugs.
-  * If your laptop lacks an RJ45 port, any basic USB-to-Ethernet adapter works instantly.
-* **Option B: The "Trick Windows" Workaround (If you must use Wi-Fi):**
-  * Connect your PC to your mobile phone's hotspot (or home Wi-Fi) first so Windows 11 sees an active internet connection.
-  * Toggle Windows Mobile Hotspot to **ON** with SSID `JioSTB-Setup` and Password `password123`.
-  * Once the STB connects to `JioSTB-Setup`, our captive lab scripts bind to DNS port 53 and hijack all STB traffic locally anyway.
-* **Option C: To Stop the Wi-Fi Looping in Windows Device Manager:**
-  * Open **Device Manager** $\to$ **Network adapters** $\to$ Right-click **MediaTek Wi-Fi 6 (MT7921/RZ608)** $\to$ **Properties** $\to$ **Power Management** tab.
-  * **Uncheck** *"Allow the computer to turn off this device to save power"*.
-  * Updating the MediaTek driver to version `3.00.01.1275` or higher via HP Support Assistant or OEM update catalogs also permanently stabilizes this driver crash.
-
-### 5. No ports contacting, handshake not appearing, or STB IP is different? (Firewall & Network Troubleshooting)
-
-#### A. Turn OFF Windows Defender Firewall & Antivirus:
-* If the Mock ACS terminal remains completely quiet after you power-cycle the STB, Windows Defender Firewall (or third-party antivirus suites like **Quick Heal**, **McAfee**, **Norton**, **Bitdefender**) is dropping inbound traffic on ports **`53`** (DNS), **`123`** (NTP), **`8443`**, and **`9443`** (TR-069).
-* This frequently happens if your PC and STB are connected via a home Wi-Fi network or switch, where Windows classifies the connection as "Public Network" and blocks all incoming socket connections.
-* **Troubleshooting Action:** Temporarily **turn OFF Windows Defender Firewall** (and pause protection on Quick Heal/McAfee for 15 minutes) while running the unlock script. Once ADB is unlocked, re-enable it.
-
-#### B. Check Your STB's Actual IP Address:
-* In the Mock ACS console, look at the incoming connection lines:
-  ```text
-  [15:35:35] 192.168.5.69:32786 [:9443] ...
-  ```
-  * In Direct P2P Ethernet mode, the default STB IP is `192.168.50.2`.
-  * In Wi-Fi Hotspot mode, the STB is assigned `192.168.137.x`.
-  * If connected via your home router/switch, the STB gets an IP from your router (e.g. `192.168.5.69` or `192.168.29.x`).
-* **Always use the STB IP shown in the console banner** when connecting with ADB:
-  ```cmd
-  adb connect <YOUR_STB_IP>:5555
-  ```
-
-### 6. Do I need an active JioFiber connection for Online Mode vs. Offline Mode?
-
-* **Online Relay Mode (Variant 1):**
-  * **Requires an active JioFiber connection.**
-  * The upstream Jio ACS server (`acs.oss.jio.com` $\to$ `49.40.134.113:8443`) is an **internal private Jio IP**.
-  * It can **only be reached** through a JioFiber or Jio network. Non-Jio ISPs (Airtel, ACT, Tata Play, mobile hotspot) cannot route to `49.40.134.113`.
-* **Offline Standalone Mode (Variant 2 - Default Auto-Fallback):**
-  * **Requires ZERO Jio connection and ZERO internet access!**
-  * If your PC is offline, or connected to a non-Jio ISP, or plugged directly into the STB via an isolated Ethernet cable, the toolkit automatically falls back to **100% Offline Standalone Mock ACS**.
-  * It generates authentic Undertow MD5 nonces locally, mimics Jio's CWMP server, and injects `Device.JioSTB.USB.USBDebugging = true` completely offline.
-  * You can unlock your STB anywhere on any computer without needing an active JioFiber subscription!
 
 ---
 
