@@ -17,18 +17,18 @@ echo     https://github.com/krishnasen2401/jiostb
 echo ==========================================================
 echo.
 echo Select your Jio STB Model Family:
-echo   [1] SDMC / JMSD Series: JMSD200A / AirFiber (RILROOTCA cert) [DEFAULT]
-echo   [2] JHS / Skyworth Series: JHSD200 / JHSC200 / JMSC200A / JHSB200 (eMudhra cert)
+echo   [1] Universal Auto-Select: All Models (JHSD, JHSC, JMSC, JMSD, JMSB, AirFiber) [DEFAULT]
+echo   [2] Legacy / Custom: Fallback RILROOTCA Chain
 echo.
 set MODEL_CHOICE=1
 set /p MODEL_CHOICE="Enter choice [1 or 2, default 1]: "
-set STB_MODEL=jms
-if "%MODEL_CHOICE%"=="2" set STB_MODEL=jhs
+set STB_MODEL=universal
+if "%MODEL_CHOICE%"=="2" set STB_MODEL=legacy
 
-if "%STB_MODEL%"=="jhs" (
-    echo [+] Configured for JHS Series - eMudhra certificate chain
+if "%STB_MODEL%"=="universal" (
+    echo [+] Configured for Universal Auto-Select - Verified eMudhra TLS chain (Comodo AAA CA)
 ) else (
-    echo [+] Configured for JMS Series - RILROOTCA certificate chain
+    echo [+] Configured for Legacy - RILROOTCA certificate chain
 )
 echo.
 echo [*] Tip: If STB never contacts the lab, temporarily turn OFF Windows Firewall

@@ -146,12 +146,15 @@ if ($allEthernetAdapters.Count -eq 0) {
 
 $adapterName = $adapter.Name
 Write-Host "[+] Using Ethernet Adapter: $adapterName ($($adapter.InterfaceDescription))" -ForegroundColor Green
-Set-NetIPInterface -InterfaceIndex $adapter.ifIndex -AddressFamily IPv4 -Forwarding Disabled
-Set-NetIPInterface -InterfaceIndex $adapter.ifIndex -AddressFamily IPv6 -Forwarding Disabled
+if ($adapter.Status -eq "Disconnected") {
+    Write-Host "[!] Warning: Ethernet Adapter shows 'Disconnected'. Please ensure the RJ45 cable is plugged firmly into both PC and Jio STB!" -ForegroundColor Yellow
+}
+Set-NetIPInterface -InterfaceIndex $adapter.ifIndex -AddressFamily IPv4 -Forwarding Disabled -ErrorAction SilentlyContinue
+Set-NetIPInterface -InterfaceIndex $adapter.ifIndex -AddressFamily IPv6 -Forwarding Disabled -ErrorAction SilentlyContinue
 & netsh.exe interface portproxy reset | Out-Null
 Get-NetRoute -InterfaceIndex $adapter.ifIndex -AddressFamily IPv4 -DestinationPrefix '0.0.0.0/0' -ErrorAction SilentlyContinue | Remove-NetRoute -Confirm:$false -ErrorAction SilentlyContinue
 Get-NetIPAddress -InterfaceIndex $adapter.ifIndex -AddressFamily IPv4 -ErrorAction SilentlyContinue | Where-Object { $_.IPAddress -ne '127.0.0.1' } | Remove-NetIPAddress -Confirm:$false -ErrorAction SilentlyContinue
-Set-NetIPInterface -InterfaceIndex $adapter.ifIndex -AddressFamily IPv4 -Dhcp Disabled
+Set-NetIPInterface -InterfaceIndex $adapter.ifIndex -AddressFamily IPv4 -Dhcp Disabled -ErrorAction SilentlyContinue
 
 New-NetIPAddress -InterfaceIndex $adapter.ifIndex -IPAddress $labAddress -PrefixLength $labPrefix -ErrorAction SilentlyContinue | Out-Null
 New-NetIPAddress -InterfaceIndex $adapter.ifIndex -IPAddress '8.8.8.8' -PrefixLength 32 -ErrorAction SilentlyContinue | Out-Null

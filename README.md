@@ -39,10 +39,10 @@ To ensure a smooth, error-free unlock on your first try, follow these 3 critical
 >    Windows Defender Firewall or third-party suites (**Quick Heal**, **McAfee**, **Norton**) will silently drop inbound packets on ports `53` (DNS) and `8443`/`9443` (TR-069). **Turn them OFF for 15 minutes** while unlocking.
 > 2. **Always Cold Power-Cycle (12V DC Plug):**  
 >    **Do NOT use the remote power button!** Jio STB remote power only puts the device into a low-power standby state (`suspend-to-RAM`) where TR-069 does **not** re-initialize. You **must pull the physical 12V DC adapter barrel plug** from the back of the box, wait 5 seconds, and plug it back in.
-> 3. **Select the Correct Model Family:**  
->    When the script prompts for your hardware family:
->    * Press `1` for **JMS Series** (`JMSD200A`, `JMSC200A`, `JMSB200A` / AirFiber) $\to$ loads `acs_chain.pem` (RILROOTCA pin).
->    * Press `2` for **JHS Series** (`JHSD200`, `JHSC200`, `JHSB200`, Skyworth `21.1.14` / JioOS 2.0) $\to$ loads `forged_chain.pem` (eMudhra pin).
+> 3. **Select Universal Auto-Select (Option 1):**  
+>    When the script prompts for model family:
+>    * Press `1` for **Universal Auto-Select [DEFAULT]** (covers all hardware: `JHSD200`, `JHSC200`, `JMSC200A`, `JMSD200A`, `JMSB200A`, AirFiber) $\to$ loads verified `forged_chain.pem` (eMudhra + Comodo AAA CA, pre-trusted by all Android builds).
+>    * Press `2` for **Legacy / Custom fallback** $\to$ loads `acs_chain.pem`.
 
 ---
 
@@ -93,8 +93,8 @@ Direct Ethernet mode creates an isolated, deterministic network between your PC 
    * Connect an RJ45 Ethernet cable **directly between your PC's Ethernet port and the Jio STB** (do NOT plug the cable into your home router).
 2. Double-click **`UNLOCK_ADB_ETHERNET.bat`** (Accept the Windows UAC Administrator prompt).
 3. **Select your STB Model Family:**
-   * Enter `1` for **JMS Series** (`JMSD200A`, `JMSC200A`, `JMSB200A` / AirFiber) $\to$ loads `acs_chain.pem` (RILROOTCA pin).
-   * Enter `2` for **JHS Series** (`JHSD200`, `JHSC200`, `JHSB200`, Skyworth `21.1.14` / JioOS 2.0) $\to$ loads `forged_chain.pem` (eMudhra chain).
+   * Enter `1` for **Universal Auto-Select [DEFAULT]** (`JHSD200`, `JHSC200`, `JMSC200A`, `JMSD200A`, `JMSB200A`, AirFiber) $\to$ loads `forged_chain.pem` (eMudhra chain).
+   * Enter `2` for **Legacy / Custom fallback** $\to$ loads `acs_chain.pem`.
 4. **Cold Power-Cycle the STB:**
    * Unplug the 12V DC power cable from the back of the STB.
    * Wait 5 seconds $\to$ Reconnect power.

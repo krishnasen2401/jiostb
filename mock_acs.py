@@ -141,7 +141,7 @@ tuABhXzyODVQ6JdLhzO3+6Jb
 import argparse
 _parser = argparse.ArgumentParser(add_help=False)
 _parser.add_argument("--cert", type=str, default=None)
-_parser.add_argument("--model", type=str, default="auto", choices=["auto", "jms", "jhs"])
+_parser.add_argument("--model", type=str, default="auto", choices=["auto", "universal", "jms", "jhs", "legacy", "rilrootca"])
 _cli_args, _ = _parser.parse_known_args()
 
 _model_env = os.environ.get("STB_MODEL", "auto").lower()
@@ -149,20 +149,13 @@ TARGET_MODEL = _cli_args.model if _cli_args.model != "auto" else _model_env
 
 if _cli_args.cert and os.path.exists(_cli_args.cert):
     CERT_FILE = os.path.abspath(_cli_args.cert)
-elif TARGET_MODEL == "jhs":
+elif TARGET_MODEL in ("legacy", "rilrootca") and os.path.exists(os.path.join(BASE_DIR, "acs_chain.pem")):
+    CERT_FILE = os.path.join(BASE_DIR, "acs_chain.pem")
+else:
+    # Universal Default: forged_chain.pem (eMudhra + Comodo AAA CA, trusted by all Android TV builds)
     CERT_FILE = os.path.join(BASE_DIR, "forged_chain.pem")
     if not os.path.exists(CERT_FILE):
         CERT_FILE = os.path.join(BASE_DIR, "acs_chain.pem")
-else:
-    # Default: JMS series (acs_chain.pem with RILROOTCA)
-    CERT_FILE = os.path.join(BASE_DIR, "acs_chain.pem")
-    if not os.path.exists(CERT_FILE):
-        try:
-            with open(CERT_FILE, "w", encoding="utf-8") as f:
-                f.write(EMBEDDED_ACS_CHAIN)
-        except Exception:
-            if os.path.exists(os.path.join(BASE_DIR, "forged_chain.pem")):
-                CERT_FILE = os.path.join(BASE_DIR, "forged_chain.pem")
 # TR-069 standard CWMP ports.
 # Note: Port 443 is disabled by default to completely block 3rd-party Android app SSL noise.
 PORTS = [7443, 7547, 8080, 8443, 9443]
