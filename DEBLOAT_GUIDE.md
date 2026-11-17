@@ -149,7 +149,29 @@ settings put secure ui_night_mode 2
 * **Installation:**
   ```bash
   adb install apks/AptoideTV.apk
+  adb shell appops set cm.aptoidetv.pt REQUEST_INSTALL_PACKAGES allow
   ```
+
+### D. TV Bro (`apks/TVBro.apk`) — TV Web Browser & APK Downloader
+* **What it is:** A fully open-source web browser engineered specifically for Android TV by [truefedex/tv-bro](https://github.com/truefedex/tv-bro).
+* **Why use it:** Features a built-in download manager, voice search, remote-friendly cursor, tabs, bookmarks, and ad-blocking. It allows browsing directly to any website (APKMirror, GitHub, official app sites) and downloading/installing APKs straight to your STB using only the remote control.
+* **Installation:**
+  ```bash
+  adb install apks/TVBro.apk
+  adb shell appops set com.phlox.tvwebbrowser REQUEST_INSTALL_PACKAGES allow
+  ```
+
+### E. SmartTube ATV Intent Bridge (`apks/stn_bridge_atv.apk`)
+* **What it is:** A lightweight bridge that registers as the system handler for `com.google.android.youtube.tv`.
+* **Why use it:** When any app, launcher row, or remote control button tries to launch official YouTube, this bridge redirects the request directly into SmartTube (`org.smarttube.stable`), providing a native TV experience with ad blocking and sponsor skipping.
+* **Installation:**
+  ```bash
+  adb install apks/stn_bridge_atv.apk
+  ```
+
+### F. Send Files to TV (SFTV) — Wireless Local APK Transfer
+* **What it is:** A popular cross-platform file transfer utility (`com.yablio.sendfilestotv`) available across Android, Windows, and macOS.
+* **Why use it:** Download any APK on your smartphone or PC, open SFTV on both devices connected to the same Wi-Fi, and transfer the APK file to your TV in seconds with zero cables. Install it directly from Aptoide TV or OpenShelf.
 
 ---
 

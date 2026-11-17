@@ -177,6 +177,7 @@ def step_install_apks():
         ("Shevery (On-device Shizuku shell)", "shevery-release.apk"),
         ("Google Cast Receiver (Official Chromecast)", "mediashell.apk"),
         ("Aptoide TV (Android TV App Store)", "AptoideTV.apk"),
+        ("TV Bro (TV Web Browser & Downloader)", "TVBro.apk"),
         ("SmartTube ATV Bridge (YouTube Remote Bridge)", "stn_bridge_atv.apk"),
         ("Android TV Settings Shortcut", "AndroidSettingsShortcut.apk"),
         ("Jio Settings Shortcut", "JioSettingsShortcut.apk"),
@@ -198,6 +199,7 @@ def step_install_apks():
     # Pre-grant installer permissions and secure settings
     run_adb_shell("appops set io.github.wingedpanther.openshelf REQUEST_INSTALL_PACKAGES allow")
     run_adb_shell("appops set cm.aptoidetv.pt REQUEST_INSTALL_PACKAGES allow")
+    run_adb_shell("appops set com.phlox.tvwebbrowser REQUEST_INSTALL_PACKAGES allow")
     run_adb_shell("pm grant io.github.sds100.keymapper android.permission.WRITE_SECURE_SETTINGS")
     run_adb_shell("pm grant com.spocky.projengmenu android.permission.WRITE_SECURE_SETTINGS")
     run_adb_shell("pm grant com.klevico.monet android.permission.WRITE_SECURE_SETTINGS")
