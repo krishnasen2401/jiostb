@@ -356,6 +356,12 @@ def main():
     print(f"  Fake ACS IP:   {FAKE_ACS_IP} (acs.oss.jio.com)", flush=True)
     print(f"===========================================================", flush=True)
 
+    try:
+        with open(BASE / "captive_wifi_lab.log", "a", encoding="utf-8") as lf:
+            lf.write(f"[{time.strftime('%H:%M:%S')}] [INIT] Wi-Fi Hotspot Captive Lab started on {SERVICE_ADDRESS}\n")
+    except Exception:
+        pass
+
     threads = []
     
     # 1. DNS UDP

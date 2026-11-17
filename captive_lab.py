@@ -310,6 +310,11 @@ def dot_blocker():
 
 def main():
     print(f"Network setup started on {SERVICE_ADDRESS}", flush=True)
+    try:
+        with open(BASE / "captive_lab.log", "a", encoding="utf-8") as lf:
+            lf.write(f"[{time.strftime('%H:%M:%S')}] [INIT] Ethernet Captive Lab started on {SERVICE_ADDRESS}\n")
+    except Exception:
+        pass
     threads = []
 
     # 1. DNS UDP

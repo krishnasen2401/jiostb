@@ -674,6 +674,14 @@ def main():
             log("  [+] Mode: ONLINE RELAY (JioFiber WAN Active - Upstream ACS Reachable)")
         else:
             log("  [!] Mode: OFFLINE STANDALONE (Zero Internet / Non-Jio ISP Mode - 100% Offline)")
+
+        # Initialize packet log file immediately so all diagnostic files exist on startup
+        try:
+            with open(PACKET_LOG_FILE, "a", encoding="utf-8") as pf:
+                mode_str = "ONLINE RELAY" if UPSTREAM_ONLINE else "OFFLINE STANDALONE"
+                pf.write(f"# --- Jio STB Mock ACS Packet Log Session Started: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')} ---\n# Target: {TARGET_MODEL.upper()} | Mode: {mode_str}\n\n")
+        except Exception:
+            pass
         log("==========================================================")
         log("  >>> ACTION REQUIRED: POWER-CYCLE (REBOOT) THE JIO STB NOW <<<")
         log("  1. Unplug the STB power cable from the back.")
