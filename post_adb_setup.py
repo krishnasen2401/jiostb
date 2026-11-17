@@ -17,6 +17,7 @@ import json
 import base64
 import hashlib
 import subprocess
+import re
 
 MANUFACTURER_KEYS = {
     "SDMC": "DahWaethuL9xoo3e",      # JHSD200, JMSD200, etc.
@@ -87,9 +88,38 @@ def check_connection():
     active_devices = [l for l in lines[1:] if "device" in l and "offline" not in l and "unauthorized" not in l]
     return len(active_devices) > 0
 
+def get_candidate_ips():
+    candidates = ["192.168.50.2"]
+    log_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "mock_acs.log")
+    if os.path.exists(log_path):
+        try:
+            with open(log_path, "r", encoding="utf-8", errors="ignore") as lf:
+                lines = lf.readlines()[-200:]
+            for line in reversed(lines):
+                m = re.search(r"(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}):\d+", line)
+                if m:
+                    ip = m.group(1)
+                    if not ip.startswith("127.") and ip not in candidates:
+                        candidates.append(ip)
+        except Exception:
+            pass
+    return candidates
+
 def connect_device():
     if check_connection():
         return True
+
+    # Automatically probe discovered candidate IPs from lab and mock_acs.log
+    candidates = get_candidate_ips()
+    for ip in candidates:
+        target = f"{ip}:5555"
+        print(f"[*] Probing ADB at {target}...", end=" ", flush=True)
+        run_adb(["connect", target])
+        time.sleep(1.5)
+        if check_connection():
+            print("CONNECTED!")
+            return True
+        print("Not reached")
 
     print("\n[!] No active ADB device found.")
     print("    If your STB is on Wi-Fi/Ethernet, enter its IP address below:")

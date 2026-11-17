@@ -10,6 +10,7 @@ import hashlib
 import http.client
 import traceback
 import sys
+import time
 
 # ==============================================================================
 # JIO STB UNIVERSAL MOCK ACS SERVER (DUAL-VARIANT: RELAY + OFFLINE STANDALONE)
@@ -431,11 +432,12 @@ def send_next_task(s, cid, sess):
         log(f"{cid} <<< 204 session closed. Final Status: {status_msg}")
         if sess.get("adb_unlocked"):
             dev_model = sess.get("model", "Jio STB")
+            target_ip = addr[0]
             banner = f"""
 ======================================================================
   🎉🎉🎉 SUCCESS: JIO STB ADB IS FULLY UNLOCKED! 🎉🎉🎉
 ======================================================================
-  Device: {dev_model} (Target IP: 192.168.50.2:5555)
+  Device: {dev_model} (STB IP: {target_ip}:5555)
 
   ACTION REQUIRED ON YOUR TV SCREEN RIGHT NOW:
   1. Turn on your TV screen.
@@ -445,19 +447,22 @@ def send_next_task(s, cid, sess):
 
   NEXT STEP:
   Open a second Command Prompt / PowerShell window and run:
+      adb connect {target_ip}:5555
       .\\1CLICK_POST_ADB_SETUP.bat
 ======================================================================
 """
             log(banner, to_stdout=True)
             
-            def _trigger_adb_probe():
+            def _trigger_adb_probe(stb_ip=target_ip):
                 time.sleep(2.0)
                 try:
                     import subprocess
                     adb_bin = os.path.join(BASE_DIR, "bin", "adb.exe")
                     if not os.path.exists(adb_bin):
                         adb_bin = "adb"
-                    subprocess.run([adb_bin, "connect", "192.168.50.2:5555"], capture_output=True, timeout=8)
+                    subprocess.run([adb_bin, "connect", f"{stb_ip}:5555"], capture_output=True, timeout=8)
+                    if stb_ip != "192.168.50.2":
+                        subprocess.run([adb_bin, "connect", "192.168.50.2:5555"], capture_output=True, timeout=5)
                 except Exception:
                     pass
             threading.Thread(target=_trigger_adb_probe, daemon=True).start()
