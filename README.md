@@ -483,6 +483,38 @@ This toolkit is engineered with strict non-destructive safety guardrails to ensu
   * **Uncheck** *"Allow the computer to turn off this device to save power"*.
   * Updating the MediaTek driver to version `3.00.01.1275` or higher via HP Support Assistant or OEM update catalogs also permanently stabilizes this driver crash.
 
+### 5. No ports contacting, handshake not appearing, or STB IP is different? (Firewall & Network Troubleshooting)
+
+#### A. Turn OFF Windows Defender Firewall & Antivirus:
+* If the Mock ACS terminal remains completely quiet after you power-cycle the STB, Windows Defender Firewall (or third-party antivirus suites like **Quick Heal**, **McAfee**, **Norton**, **Bitdefender**) is dropping inbound traffic on ports **`53`** (DNS), **`123`** (NTP), **`8443`**, and **`9443`** (TR-069).
+* This frequently happens if your PC and STB are connected via a home Wi-Fi network or switch, where Windows classifies the connection as "Public Network" and blocks all incoming socket connections.
+* **Troubleshooting Action:** Temporarily **turn OFF Windows Defender Firewall** (and pause protection on Quick Heal/McAfee for 15 minutes) while running the unlock script. Once ADB is unlocked, re-enable it.
+
+#### B. Check Your STB's Actual IP Address:
+* In the Mock ACS console, look at the incoming connection lines:
+  ```text
+  [15:35:35] 192.168.5.69:32786 [:9443] ...
+  ```
+  * In Direct P2P Ethernet mode, the default STB IP is `192.168.50.2`.
+  * In Wi-Fi Hotspot mode, the STB is assigned `192.168.137.x`.
+  * If connected via your home router/switch, the STB gets an IP from your router (e.g. `192.168.5.69` or `192.168.29.x`).
+* **Always use the STB IP shown in the console banner** when connecting with ADB:
+  ```cmd
+  adb connect <YOUR_STB_IP>:5555
+  ```
+
+### 6. Do I need an active JioFiber connection for Online Mode vs. Offline Mode?
+
+* **Online Relay Mode (Variant 1):**
+  * **Requires an active JioFiber connection.**
+  * The upstream Jio ACS server (`acs.oss.jio.com` $\to$ `49.40.134.113:8443`) is an **internal private Jio IP**.
+  * It can **only be reached** through a JioFiber or Jio network. Non-Jio ISPs (Airtel, ACT, Tata Play, mobile hotspot) cannot route to `49.40.134.113`.
+* **Offline Standalone Mode (Variant 2 - Default Auto-Fallback):**
+  * **Requires ZERO Jio connection and ZERO internet access!**
+  * If your PC is offline, or connected to a non-Jio ISP, or plugged directly into the STB via an isolated Ethernet cable, the toolkit automatically falls back to **100% Offline Standalone Mock ACS**.
+  * It generates authentic Undertow MD5 nonces locally, mimics Jio's CWMP server, and injects `Device.JioSTB.USB.USBDebugging = true` completely offline.
+  * You can unlock your STB anywhere on any computer without needing an active JioFiber subscription!
+
 ---
 
 ## 🙏 Credits & Acknowledgements

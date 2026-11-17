@@ -818,14 +818,16 @@ def main():
         log("  Checking upstream connectivity to Real Jio ACS (49.40.134.113:8443)...")
         UPSTREAM_ONLINE = test_upstream_connectivity(timeout=1.5)
         if UPSTREAM_ONLINE:
-            log("  [+] Mode: ONLINE RELAY with Session Hijack (Auto-Online)")
+            log("  [+] Mode: ONLINE RELAY (JioFiber WAN Active - Upstream ACS Reachable)")
         else:
-            log("  [!] Mode: OFFLINE STANDALONE Local ACS (Auto-Fallback)")
+            log("  [!] Mode: OFFLINE STANDALONE (Zero Internet / Non-Jio ISP Mode - 100% Offline)")
         log("==========================================================")
         log("  >>> ACTION REQUIRED: POWER-CYCLE (REBOOT) THE JIO STB NOW <<<")
         log("  1. Unplug the STB power cable from the back.")
         log("  2. Wait 5 seconds, then plug it back in.")
         log("  * The STB TR-069 CWMP client ONLY connects during bootup!")
+        log("  * Troubleshooting: If no connections appear after 90 seconds,")
+        log("    temporarily turn OFF Windows Defender Firewall or pause antivirus.")
         log("==========================================================")
         
         threads = []
