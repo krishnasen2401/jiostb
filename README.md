@@ -100,8 +100,12 @@ cd jiostb
    ```
 
 > [!NOTE]
-> **Understanding Background Port 443 TLS Alerts:**
-> While waiting for TR-069, background apps on the STB (Google Play services, analytics, ad engines) probe the captive network on port 443 with standard public CAs (`SSLV3_ALERT_CERTIFICATE_UNKNOWN`). In the latest toolkit update, this port 443 noise is automatically silenced from your console (logged quietly in `mock_acs.log`), and a prominent **`🎉 SUCCESS: JIO STB ADB IS FULLY UNLOCKED!`** banner will display the moment the STB accepts the TR-069 command on port 8443 / 9443!
+> **Automated Port 443 Blocking & Zero TLS Noise:**
+> While waiting for TR-069 on ports 8443 or 9443, background Android apps on the STB (Google Play Services, analytics, ad engines) probe the network on port 443 with public CAs (`SSLV3_ALERT_CERTIFICATE_UNKNOWN`).
+> The toolkit now handles this automatically at every level:
+> 1. **Automated Windows Firewall:** The lab scripts automatically configure a kernel-level inbound block rule for TCP port 443 (`LocalLab-Block-Port443` / `LocalLab-WifiHotspot-Block-Port443`), dropping 443 noise before it reaches user space.
+> 2. **Server Ports:** `mock_acs_universal.py` and `mock_acs.py` bind strictly to TR-069 CWMP ports (`8443`, `9443`, `7443`, `7547`, `8080`) and no longer listen on 443 by default.
+> Manual Windows Firewall adjustments are completely eliminated. The moment the STB connects to port 8443/9443, a prominent **`🎉 SUCCESS: JIO STB ADB IS FULLY UNLOCKED!`** banner will display!
 >
 > **Do I need `QUERY_JIO_ACS.bat`?**
 > No! `QUERY_JIO_ACS.bat` is an advanced cloud-research tool for querying Jio's remote servers across an active JioFiber WAN. It is **not** used for unlocking local STBs. All local unlocks use `UNLOCK_ADB_ETHERNET.bat` or `UNLOCK_ADB_WIFI.bat`.

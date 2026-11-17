@@ -160,10 +160,13 @@ New-NetIPAddress -InterfaceIndex $adapter.ifIndex -IPAddress '49.44.112.10' -Pre
 Start-Sleep -Seconds 2
 
 Get-NetFirewallRule -DisplayName 'LocalLab-Allow-Inbound*' -ErrorAction SilentlyContinue | Remove-NetFirewallRule
+Get-NetFirewallRule -DisplayName 'LocalLab-Block-Port443' -ErrorAction SilentlyContinue | Remove-NetFirewallRule
 Get-NetFirewallRule -DisplayName 'LocalLab-Isolate-Subnet' -ErrorAction SilentlyContinue | Remove-NetFirewallRule
+Get-NetFirewallRule -DisplayName 'Block 443 Noise' -ErrorAction SilentlyContinue | Remove-NetFirewallRule
 
 New-NetFirewallRule -DisplayName 'LocalLab-Allow-Inbound-UDP' -Group 'LocalLab' -Direction Inbound -Action Allow -Protocol UDP -LocalPort 53,67,123 -LocalAddress Any -RemoteAddress Any -Profile Any | Out-Null
-New-NetFirewallRule -DisplayName 'LocalLab-Allow-Inbound-TCP' -Group 'LocalLab' -Direction Inbound -Action Allow -Protocol TCP -LocalPort 53,80,443,7443,7547,8080,8443,9443 -LocalAddress Any -RemoteAddress Any -Profile Any | Out-Null
+New-NetFirewallRule -DisplayName 'LocalLab-Allow-Inbound-TCP' -Group 'LocalLab' -Direction Inbound -Action Allow -Protocol TCP -LocalPort 53,80,7443,7547,8080,8443,9443 -LocalAddress Any -RemoteAddress Any -Profile Any | Out-Null
+New-NetFirewallRule -DisplayName 'LocalLab-Block-Port443' -Group 'LocalLab' -Direction Inbound -Action Block -Protocol TCP -LocalPort 443 -LocalAddress Any -RemoteAddress Any -Profile Any | Out-Null
 New-NetFirewallRule -DisplayName 'LocalLab-Allow-Inbound-ICMP' -Group 'LocalLab' -Direction Inbound -Action Allow -Protocol ICMPv4 -LocalAddress Any -RemoteAddress Any -Profile Any | Out-Null
 New-NetFirewallRule -DisplayName 'LocalLab-Isolate-Subnet' -Group 'LocalLab' -Direction Outbound -Action Block -Protocol Any -LocalAddress '192.168.50.0/24','49.44.112.10','142.250.190.46' -RemoteAddress '0.0.0.0-192.168.49.255','192.168.51.0-255.255.255.255' -Profile Any | Out-Null
 

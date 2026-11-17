@@ -26,6 +26,8 @@ Get-ChildItem -Path $base -Filter "*.pid" | Remove-Item -Force -ErrorAction Sile
 
 # 4. Clean up firewall rules
 Get-NetFirewallRule -DisplayName 'Jio-FOTA-Lab*' -ErrorAction SilentlyContinue | Remove-NetFirewallRule
+Get-NetFirewallRule -DisplayName 'LocalLab*' -ErrorAction SilentlyContinue | Remove-NetFirewallRule
+Get-NetFirewallRule -DisplayName 'Block 443 Noise' -ErrorAction SilentlyContinue | Remove-NetFirewallRule
 
 # 5. Restart w32time
 Start-Service w32time -ErrorAction SilentlyContinue

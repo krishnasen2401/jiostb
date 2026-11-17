@@ -134,9 +134,11 @@ if (-not $hotspotAdapter) {
 # 4. Configure Windows Firewall
 Write-Host "[4/5] Updating Windows Firewall rules for Wi-Fi Lab..." -ForegroundColor Yellow
 Get-NetFirewallRule -DisplayName 'LocalLab-WifiHotspot*' -ErrorAction SilentlyContinue | Remove-NetFirewallRule
+Get-NetFirewallRule -DisplayName 'Block 443 Noise' -ErrorAction SilentlyContinue | Remove-NetFirewallRule
 
 New-NetFirewallRule -DisplayName 'LocalLab-WifiHotspot-Allow-UDP' -Group 'LocalLab-WifiHotspot' -Direction Inbound -Action Allow -Protocol UDP -LocalPort 53,67,123 -LocalAddress Any -RemoteAddress Any -Profile Any | Out-Null
-New-NetFirewallRule -DisplayName 'LocalLab-WifiHotspot-Allow-TCP' -Group 'LocalLab-WifiHotspot' -Direction Inbound -Action Allow -Protocol TCP -LocalPort 53,80,443,7443,7547,8080,8443,9443 -LocalAddress Any -RemoteAddress Any -Profile Any | Out-Null
+New-NetFirewallRule -DisplayName 'LocalLab-WifiHotspot-Allow-TCP' -Group 'LocalLab-WifiHotspot' -Direction Inbound -Action Allow -Protocol TCP -LocalPort 53,80,7443,7547,8080,8443,9443 -LocalAddress Any -RemoteAddress Any -Profile Any | Out-Null
+New-NetFirewallRule -DisplayName 'LocalLab-WifiHotspot-Block-Port443' -Group 'LocalLab-WifiHotspot' -Direction Inbound -Action Block -Protocol TCP -LocalPort 443 -LocalAddress Any -RemoteAddress Any -Profile Any | Out-Null
 New-NetFirewallRule -DisplayName 'LocalLab-WifiHotspot-Allow-ICMP' -Group 'LocalLab-WifiHotspot' -Direction Inbound -Action Allow -Protocol ICMPv4 -LocalAddress Any -RemoteAddress Any -Profile Any | Out-Null
 
 # 5. Launch Servers

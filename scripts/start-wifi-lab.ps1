@@ -45,9 +45,11 @@ if ($hotspotAdapter) {
 # 3. Windows Firewall Rules
 Write-Host "[3/4] Updating Windows Firewall rules..." -ForegroundColor Yellow
 Get-NetFirewallRule -DisplayName 'Jio-FOTA-Lab*' -ErrorAction SilentlyContinue | Remove-NetFirewallRule
+Get-NetFirewallRule -DisplayName 'Block 443 Noise' -ErrorAction SilentlyContinue | Remove-NetFirewallRule
 
 New-NetFirewallRule -DisplayName 'Jio-FOTA-Lab-Allow-UDP' -Group 'Jio-FOTA-Lab' -Direction Inbound -Action Allow -Protocol UDP -LocalPort 53,67,123 -LocalAddress Any -RemoteAddress Any -Profile Any | Out-Null
-New-NetFirewallRule -DisplayName 'Jio-FOTA-Lab-Allow-TCP' -Group 'Jio-FOTA-Lab' -Direction Inbound -Action Allow -Protocol TCP -LocalPort 53,80,443,7443,8080,8443,9443 -LocalAddress Any -RemoteAddress Any -Profile Any | Out-Null
+New-NetFirewallRule -DisplayName 'Jio-FOTA-Lab-Allow-TCP' -Group 'Jio-FOTA-Lab' -Direction Inbound -Action Allow -Protocol TCP -LocalPort 53,80,7443,7547,8080,8443,9443 -LocalAddress Any -RemoteAddress Any -Profile Any | Out-Null
+New-NetFirewallRule -DisplayName 'Jio-FOTA-Lab-Block-Port443' -Group 'Jio-FOTA-Lab' -Direction Inbound -Action Block -Protocol TCP -LocalPort 443 -LocalAddress Any -RemoteAddress Any -Profile Any | Out-Null
 
 # 4. Launch Services
 Write-Host "[4/4] Launching FOTA Monitor ACS and Captive Responder..." -ForegroundColor Green

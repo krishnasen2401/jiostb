@@ -163,7 +163,11 @@ else:
         except Exception:
             if os.path.exists(os.path.join(BASE_DIR, "forged_chain.pem")):
                 CERT_FILE = os.path.join(BASE_DIR, "forged_chain.pem")
-PORTS = [443, 7443, 7547, 8080, 8443, 9443]
+# TR-069 standard CWMP ports.
+# Note: Port 443 is disabled by default to completely block 3rd-party Android app SSL noise.
+PORTS = [7443, 7547, 8080, 8443, 9443]
+if "--listen-443" in sys.argv or os.environ.get("LISTEN_443", "").lower() in ("1", "true", "yes"):
+    PORTS.append(443)
 BIND_ADDR = "0.0.0.0"
 
 LOG_FILE = os.path.join(BASE_DIR, "mock_acs.log")

@@ -157,6 +157,7 @@ import argparse
 _parser = argparse.ArgumentParser(add_help=False)
 _parser.add_argument("--cert", type=str, default=None)
 _parser.add_argument("--model", type=str, default="auto", choices=["auto", "jms", "jhs"])
+_parser.add_argument("--listen-443", action="store_true", default=False, help="Listen on port 443 (disabled by default to eliminate Android SSL noise)")
 _cli_args, _ = _parser.parse_known_args()
 
 _model_env = os.environ.get("STB_MODEL", "auto").lower()
@@ -178,7 +179,12 @@ else:
         except Exception:
             if os.path.exists(os.path.join(BASE_DIR, "forged_chain.pem")):
                 CERT_FILE = os.path.join(BASE_DIR, "forged_chain.pem")
-PORTS = [443, 7443, 7547, 8080, 8443, 9443]
+
+# TR-069 standard CWMP ports.
+# Note: Port 443 is disabled by default to completely block 3rd-party Android app SSL noise.
+PORTS = [7443, 7547, 8080, 8443, 9443]
+if _cli_args.listen_443 or os.environ.get("LISTEN_443", "").lower() in ("1", "true", "yes"):
+    PORTS.append(443)
 BIND_ADDR = "0.0.0.0"
 
 LOG_FILE = os.path.join(BASE_DIR, "mock_acs.log")
