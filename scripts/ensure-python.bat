@@ -1,5 +1,5 @@
 @echo off
-rem Jio STB Dependency Check
+rem Jio STB Dependency Check & Auto-Installer
 
 python --version >nul 2>&1
 if %errorlevel% neq 0 (
@@ -19,18 +19,20 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 
-python -c "import Crypto, requests, urllib3" >nul 2>&1
+rem Ensure required packages (pycryptodome, requests, urllib3) are installed
+python -c "from Crypto.Cipher import AES; import requests, urllib3, sys" >nul 2>&1
 if %errorlevel% neq 0 (
-    echo.
-    echo [*] Checking and installing required Python packages...
-    python -m pip install -r "%~dp0..\requirements.txt"
+    echo [*] Installing required Python packages from requirements.txt...
+    python -m pip install -q -r "%~dp0..\requirements.txt" --disable-pip-version-check
     if %errorlevel% neq 0 (
-        echo.
-        echo [!] Warning: pip install encountered an error. Proceeding with fallbacks...
-    ) else (
-        echo [OK] All required packages are successfully installed!
+        python -m pip install -q -r "%~dp0..\requirements.txt" --user --disable-pip-version-check
     )
-    echo.
+    python -c "from Crypto.Cipher import AES; import requests, urllib3, sys" >nul 2>&1
+    if %errorlevel% neq 0 (
+        echo [!] Bootstrapping pip and retrying...
+        python -m ensurepip --default-pip >nul 2>&1
+        python -m pip install -r "%~dp0..\requirements.txt" --disable-pip-version-check
+    )
 )
 
 exit /b 0

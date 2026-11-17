@@ -176,7 +176,8 @@ def step_install_apks():
         ("OpenShelf (FOSS Android TV App Store)", "OpenShelf-0.7.0.apk"),
         ("Shevery (On-device Shizuku shell)", "shevery-release.apk"),
         ("Google Cast Receiver (Official Chromecast)", "mediashell.apk"),
-        ("Aurora Store (Play Store Client)", "AuroraStore_4.8.4.apk"),
+        ("Aptoide TV (Android TV App Store)", "AptoideTV.apk"),
+        ("SmartTube ATV Bridge (YouTube Remote Bridge)", "stn_bridge_atv.apk"),
         ("Android TV Settings Shortcut", "AndroidSettingsShortcut.apk"),
         ("Jio Settings Shortcut", "JioSettingsShortcut.apk"),
         ("TVHome (CleanYourTV Hotkeys)", "TVHome.apk"),
@@ -196,7 +197,7 @@ def step_install_apks():
 
     # Pre-grant installer permissions and secure settings
     run_adb_shell("appops set io.github.wingedpanther.openshelf REQUEST_INSTALL_PACKAGES allow")
-    run_adb_shell("appops set com.aurora.store REQUEST_INSTALL_PACKAGES allow")
+    run_adb_shell("appops set cm.aptoidetv.pt REQUEST_INSTALL_PACKAGES allow")
     run_adb_shell("pm grant io.github.sds100.keymapper android.permission.WRITE_SECURE_SETTINGS")
     run_adb_shell("pm grant com.spocky.projengmenu android.permission.WRITE_SECURE_SETTINGS")
     run_adb_shell("pm grant com.klevico.monet android.permission.WRITE_SECURE_SETTINGS")
@@ -252,7 +253,7 @@ def step_configure_hotkeys(launcher_pkg="com.spocky.projengmenu"):
     config_data = {
         "keys": [
             {"keyCode": 137, "action": "launch_app", "packageName": launcher_pkg},
-            {"keyCode": 138, "action": "launch_app", "packageName": "com.aurora.store"},
+            {"keyCode": 138, "action": "launch_app", "packageName": "cm.aptoidetv.pt"},
             {"keyCode": 134, "action": "launch_app", "packageName": "com.user.androidsettings"},
             {"keyCode": 141, "action": "launch_app", "packageName": "com.jio.media.jiotvplus"},
             {"keyCode": 142, "action": "launch_app", "packageName": "com.hamondev.shevery"}
@@ -272,7 +273,7 @@ def step_configure_hotkeys(launcher_pkg="com.spocky.projengmenu"):
     # Enable TVHome accessibility service
     run_adb_shell("settings put secure enabled_accessibility_services com.gathin.tvhome/.InputKeyService")
     run_adb_shell("am force-stop com.gathin.tvhome")
-    print("[+] CleanYourTV hotkeys mapped (Netflix -> Monet, Hotstar -> Aurora Store, etc.)")
+    print("[+] CleanYourTV hotkeys mapped (Netflix -> Monet, Hotstar -> Aptoide TV, etc.)")
     print("[+] Raw Mic key (231) preserved for native Bluetooth stack!")
 
 def step_system_tweaks():
@@ -370,7 +371,7 @@ def step_manage_jiostore_apps():
         print("  1. Download the latest microG GmsCore APK from: https://microg.org/download.html")
         print("  2. Install via ADB: adb install -r com.google.android.gms-*.apk")
         print("  3. microG provides dummy open-source stubs for Google Play Services.")
-        print("  4. Once installed, ANY generic TV APK from APKMirror/Aurora Store")
+        print("  4. Once installed, ANY generic TV APK from APKMirror/Aptoide TV")
         print("     (Zee5, SonyLIV, Hotstar, YouTube) will launch without crashing!")
         input("\n  Press Enter to return...")
     else:

@@ -341,9 +341,9 @@ def handle(conn, addr):
             log(f"TLS fail {cid}: {type(e).__name__}: {e}", to_stdout=True)
             if "CERTIFICATE_UNKNOWN" in str(e):
                 if "forged_chain" in os.path.basename(CERT_FILE):
-                    log(f"{cid} [!] STB TR-069 rejected eMudhra cert. If this is a JMS box (JMSD200A/JMSC200A), run in JMS mode ('acs_chain.pem' RILROOTCA)!", to_stdout=True)
+                    log(f"{cid} [!] STB TR-069 rejected eMudhra cert. Re-run selecting Option [1] ('acs_chain.pem' RILROOTCA)!", to_stdout=True)
                 else:
-                    log(f"{cid} [!] STB TR-069 rejected RILROOTCA cert. If this is a JHS box (JHSD200/JHSC200), run in JHS mode ('forged_chain.pem' eMudhra)!", to_stdout=True)
+                    log(f"{cid} [!] STB TR-069 rejected RILROOTCA cert. Re-run selecting Option [2] ('forged_chain.pem' eMudhra)!", to_stdout=True)
         else:
             # 3rd-party Android app (Google services, Jio ads, analytics) probed port 443 with public CAs.
             # Log quietly to mock_acs.log so user terminal stdout remains clean and readable.

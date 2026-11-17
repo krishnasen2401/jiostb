@@ -17,8 +17,8 @@ echo     https://github.com/krishnasen2401/jiostb
 echo ==========================================================
 echo.
 echo Select your Jio STB Model Family:
-echo   [1] JMS Series: JMSD200A / JMSC200A / AirFiber (JioOS 1.x / SDMC) [DEFAULT]
-echo   [2] JHS Series: JHSD200 / JHSC200 / JHSB200 (JioOS 2.0 / Skyworth)
+echo   [1] SDMC / JMSD Series: JMSD200A / AirFiber (RILROOTCA cert) [DEFAULT]
+echo   [2] JHS / Skyworth Series: JHSD200 / JHSC200 / JMSC200A / JHSB200 (eMudhra cert)
 echo.
 set MODEL_CHOICE=1
 set /p MODEL_CHOICE="Enter choice [1 or 2, default 1]: "

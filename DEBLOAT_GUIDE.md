@@ -12,9 +12,9 @@ To automate the entire debloating, launcher installation, hotkey remapping, and 
    - Verify connection and detect your STB model (`JHSD200`, `JHSC200`, `JHSB200`).
    - Freeze all Iwedia OTA update services while protecting `com.jio.tr069client` (ensuring ADB stays persistent).
    - Disable Jio ads, bioscope, telemetry, and background trackers.
-   - Install all bundled utility APKs (`Monet Launcher`, `OpenShelf FOSS App Store`, `Shevery`, `Google Cast mediashell`, `Aurora Store`, `Settings shortcuts`, `TVHome`).
+   - Install all bundled utility APKs (`Projectivy Launcher / Monet`, `OpenShelf FOSS App Store`, `Shevery`, `Google Cast mediashell`, `Aptoide TV`, `Settings shortcuts`, `TVHome`).
    - Bypass the Jio PMS `Relax SCAN_REQUIRE_KNOWN` reboot bug by cleanly uninstalling the stock launcher for user `0` and activating Monet as default home.
-   - Configure CleanYourTV hotkeys (Netflix $\to$ Monet, Hotstar $\to$ Aurora Store, Prime $\to$ Android Settings).
+   - Configure CleanYourTV hotkeys (Netflix $\to$ Monet, Hotstar $\to$ Aptoide TV, Prime $\to$ Android Settings).
    - Enforce permanent Android TV Dark Mode.
    - Dump your device's TR-069 credentials profile (`device_credentials.json`).
 
@@ -143,12 +143,12 @@ settings put secure ui_night_mode 2
   adb shell appops set io.github.wingedpanther.openshelf REQUEST_INSTALL_PACKAGES allow
   ```
 
-### C. Aurora Store (`apks/AuroraStore_4.8.4.apk`) — Open-Source Play Store
-* **What it is:** An open-source, privacy-friendly Google Play Store client for Android TV.
-* **Why use it:** Allows downloading, installing, and updating any Android TV application without Google Play Services or logging into a personal Google account.
+### C. Aptoide TV (`apks/AptoideTV.apk`) — Dedicated TV App Store
+* **What it is:** The premier third-party app store specifically engineered for Android TV and AOSP STBs with full 10-ft D-pad remote navigation.
+* **Why use it (Replaces Aurora Store):** Unlike phone/tablet stores (like Aurora Store) which download touchscreen APKs that fail or crash with "Device not supported", Aptoide TV strictly serves **remote-friendly Android TV variants** of OTT apps (JioCinema TV, Hotstar TV, Zee5 TV, SonyLIV TV, Netflix TV, Kodi, VLC, etc.) with zero Google Play Services dependency.
 * **Installation:**
   ```bash
-  adb install apks/AuroraStore_4.8.4.apk
+  adb install apks/AptoideTV.apk
   ```
 
 ---
@@ -179,7 +179,7 @@ We captured the genuine production Google Cast receiver update (`v3.72.446070`, 
      * Reliance's factory DIAL server specifically maps YouTube cast requests from phones to carrier-branded `com.jio.yt` (an embedded Chromium WebView wrapper).
      * **If `com.jio.yt` is enabled:** The phone casts to Jio's WebView player. It works for basic playback, but runs with unskippable ads, clunky navigation, and poor 4K/HDR performance.
      * **Recommended (SmartTube):** Sideload SmartTube (`org.smarttube.stable`). SmartTube includes its own built-in DIAL receiver and permanent "Link with TV Code" (`youtube.com/pair`). Once linked, phones cast directly to SmartTube with zero ads, SponsorBlock, and full 4K 60fps HDR.
-     * **Official YouTube TV APK (`com.google.android.youtube.tv`):** Can be installed via Aurora Store, but Google account sign-in and voice search require microG due to uncertified AOSP status.
+     * **Official YouTube TV APK (`com.google.android.youtube.tv`):** Can be installed via Aptoide TV, but Google account sign-in and voice search require microG due to uncertified AOSP status.
 
 ---
 
@@ -428,7 +428,7 @@ pm disable-user --user 0 com.jio.universalsetup
 
 ### 4. Remote Key Mapping with CleanYourTV / KeyMapper
 * **Netflix (KeyCode 137):** Projectivy / Monet Home
-* **Hotstar (KeyCode 138):** Aurora Store / SmartTube
+* **Hotstar (KeyCode 138):** Aptoide TV / SmartTube
 * **Prime Video (KeyCode 134):** Native Android TV Settings (`com.android.tv.settings`)
 * **JioTV+ (KeyCode 141):** NuvioTV (`com.nuvio.tv`)
 * **Extra / Apps (KeyCode 142):** Shevery local root shell
@@ -439,7 +439,7 @@ pm disable-user --user 0 com.jio.universalsetup
 
 ### The Root Cause: Why Generic TV APKs Crash
 * Reliance Jio STBs run non-GMS AOSP Android (without certified Google Play Services or `com.google.android.gms`).
-* Generic TV APKs downloaded from APKMirror, APKPure, or Aurora Store (such as **Zee5**, **SonyLIV**, **SunNXT**, and **Hotstar**) compile against Google Play Services for authentication and analytics.
+* Generic TV APKs downloaded from APKMirror, APKPure, or Aptoide TV (such as **Zee5**, **SonyLIV**, **SunNXT**, and **Hotstar**) compile against Google Play Services for authentication and analytics.
 * When launched on a Jio STB, these apps throw:
   ```text
   java.lang.NoClassDefFoundError: Failed resolution of: Lcom/google/android/gms/common/GoogleApiAvailability;

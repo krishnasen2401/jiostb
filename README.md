@@ -190,7 +190,7 @@ Prebuilt companion APKs are included in [`apks/`](apks/):
 * `AndroidSettingsShortcut.apk`: Direct launcher for native Android TV Settings (`com.android.tv.settings`) — used for Bluetooth remote & audio pairing, Wi-Fi, and Developer Options.
 * `JioSettingsShortcut.apk`: Standalone launcher for Jio Settings (`com.rjil.jiostbsetting`).
 * `shevery-release.apk`: On-device Shizuku shell (`uid=2000`) for PC-free management.
-* `AuroraStore_4.8.4.apk`: Open-source Google Play Store client for Android TV.
+* `AptoideTV.apk`: Dedicated Android TV App Store serving remote-friendly, 10-ft TV APKs (avoids phone/tablet APK mismatches).
 * `mediashell.apk`: Production Google Cast receiver update enabling genuine Chromecast built-in streaming.
 
 ---
@@ -377,7 +377,7 @@ jio-fota-toolkit/
 │   ├── AndroidSettingsShortcut.apk    # Native Android TV Settings launcher
 │   ├── JioSettingsShortcut.apk        # Standalone Jio Settings launcher
 │   ├── shevery-release.apk            # On-device Shizuku shell provider
-│   ├── AuroraStore_4.8.4.apk          # Open-source Google Play client
+│   ├── AptoideTV.apk                  # Dedicated Android TV App Store (10-ft UI)
 │   └── mediashell.apk                 # Production Google Cast receiver update
 │
 ├── 🔑 forged_chain.pem                 # Verified TLS intermediate chain

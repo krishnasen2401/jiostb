@@ -151,7 +151,7 @@ adb shell settings put secure ui_night_mode 2
   adb shell pm disable-user --user 0 com.jio.media.stb.jiostore
   adb shell pm disable-user --user 0 com.jio.store
   ```
-* Sideload **Aurora Store** (`apks/AuroraStore_4.8.4.apk`) as an open-source Google Play client for direct TV app downloads without requiring Google Mobile Services (GMS).
+* Sideload **Aptoide TV** (`apks/AptoideTV.apk`) as a dedicated Android TV app store for remote-friendly TV app downloads without requiring Google Mobile Services (GMS).
 
 #### 6. Clean TV Launcher Sideload & Activation
 Sideload Monet Launcher (or Projectivy):
