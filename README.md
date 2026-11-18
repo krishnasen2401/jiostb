@@ -187,7 +187,10 @@ The STB immediately registers with Google Cast client ID and broadcasts across y
 * **Cold Reboot Required:**  
   Did you pull the physical 12V DC power plug? Soft-rebooting via remote control does not re-trigger TR-069.
 * **Model Selection:**  
-  Ensure you picked Option `1` for JMS / AirFiber boxes or Option `2` for JHS / JioOS 2.0 boxes. Skyworth `JMSC200A` on firmware `21.1.14` uses Option `2`.
+  Press **Enter** for **Option `1` [Universal Auto-Select] [DEFAULT]**. This serves the verified universal eMudhra certificate (`forged_chain.pem`), which is trusted natively across all boxes (`JMSD200A`, `JMSC200A`, `JMSB200A`, `JHSD200`, `JHSC200`). Option 2 is only an experimental fallback.
+* **Persistent TLS Rejection or Captive Portal Loop? (Factory Reset Fix):**  
+  If your STB continuously rejects the handshake or gets stuck repeatedly querying `/generate_204` and `/cloud_dvr/services_...`, `com.jio.tr069client` has entered an internal **exponential backoff state** in `/data`.  
+  **Fix:** Perform a **Factory Reset** on the STB (TV Settings $\to$ Device Preferences $\to$ Reset $\to$ Erase Everything, or hold the bottom pinhole recovery button while powering on). Once reset and on the initial Welcome/Setup screen, connect the Ethernet cable to the PC running `UNLOCK_ADB_ETHERNET.bat`. In this virgin state, the STB immediately prioritizes TR-069 provisioning and unlocks cleanly!
 
 ---
 
