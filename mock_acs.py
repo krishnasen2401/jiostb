@@ -598,9 +598,9 @@ def handle(conn, addr):
                         log(banner, to_stdout=True)
 
                         def _trigger_adb_probe(stb_ip=target_ip):
-                            import time
-                            time.sleep(2.0)
                             try:
+                                import time
+                                time.sleep(2.0)
                                 import subprocess
                                 adb_bin = os.path.join(BASE_DIR, "bin", "adb.exe")
                                 if not os.path.exists(adb_bin):
