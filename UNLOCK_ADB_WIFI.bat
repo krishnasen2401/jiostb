@@ -34,5 +34,9 @@ echo.
 echo [*] Tip: If STB never contacts the lab, temporarily turn OFF Windows Firewall
 echo     (or pause Quick Heal/McAfee) as Windows drops incoming port 9443/8443 packets.
 echo.
+echo [*] PRO-TIP: If STB loops on /generate_204 or fails TLS (CERTIFICATE_UNKNOWN),
+echo     perform a FACTORY RESET on the STB (Settings -> Device Preferences -> Reset).
+echo     During fresh setup, the STB forces immediate TR-069 provisioning without backoff!
+echo.
 powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\start-adb-wifi.ps1" -AcsScript "mock_acs_universal.py" -Model "%STB_MODEL%"
 pause

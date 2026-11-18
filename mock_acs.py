@@ -682,6 +682,9 @@ def main():
         log("  * The STB TR-069 CWMP client ONLY connects during bootup!")
         log("  * Troubleshooting: If no connections appear after 90 seconds,")
         log("    temporarily turn OFF Windows Defender Firewall or pause antivirus.")
+        log("  * Loop / TLS Error Fix: If STB repeatedly rejects TLS or loops /generate_204,")
+        log("    perform a quick FACTORY RESET on the STB (Settings -> Device Preferences -> Reset).")
+        log("    During fresh setup (OOBE), the STB forces immediate TR-069 provisioning!")
         log("==========================================================")
         
         threads = []

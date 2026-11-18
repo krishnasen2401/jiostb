@@ -43,6 +43,9 @@ To ensure a smooth, error-free unlock on your first try, follow these 3 critical
 >    When the script prompts for model family:
 >    * Press `1` for **Universal Auto-Select [DEFAULT]** (covers all hardware: `JHSD200`, `JHSC200`, `JMSC200A`, `JMSD200A`, `JMSB200A`, AirFiber) $\to$ loads verified `forged_chain.pem` (eMudhra + Comodo AAA CA, pre-trusted by all Android builds).
 >    * Press `2` for **Legacy / Custom fallback** $\to$ loads `acs_chain.pem`.
+> 4. **Stuck in a Loop or TLS Error? Perform a Quick Factory Reset:**  
+>    If your STB repeatedly rejects TLS (`SSLV3_ALERT_CERTIFICATE_UNKNOWN`) or gets stuck in a captive portal polling loop (`/generate_204` or `/cloud_dvr/...`), the internal `com.jio.tr069client` daemon has entered an **exponential backoff state** in `/data` from an earlier interrupted session.  
+>    **Fix:** Perform a **Factory Reset** on the STB (**Settings** $\to$ **Device Preferences** $\to$ **Reset** $\to$ **Erase Everything**, or hold the bottom pinhole recovery button while powering on). During the fresh Initial Setup Wizard, connect to the lab. In this clean state, the STB immediately prioritizes TR-069 provisioning and unlocks on the very first boot!
 
 ---
 

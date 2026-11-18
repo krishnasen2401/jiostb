@@ -392,6 +392,7 @@ def main():
     for t in threads: t.start()
     print("Server is ready. Waiting for STB...", flush=True)
     print(">>> NOW POWER-CYCLE (REBOOT) THE JIO STB: Unplug power from back, wait 5s, plug back in! <<<", flush=True)
+    print(">>> NOTE: If STB loops on /generate_204 or fails TLS, Factory Reset the STB to clear backoff! <<<", flush=True)
     try:
         while any(t.is_alive() for t in threads): 
             for t in threads: t.join(timeout=0.5)
