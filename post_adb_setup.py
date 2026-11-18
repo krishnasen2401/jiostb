@@ -82,6 +82,18 @@ def run_adb(cmd, timeout=10):
 def run_adb_shell(shell_cmd, timeout=10):
     return run_adb(["shell", shell_cmd], timeout=timeout)
 
+def is_package_enabled(pkg):
+    res = run_adb_shell(f"pm list packages -e {pkg}")
+    return f"package:{pkg}" in res
+
+def is_package_disabled(pkg):
+    res = run_adb_shell(f"pm list packages -d {pkg}")
+    return f"package:{pkg}" in res
+
+def is_package_installed(pkg):
+    res = run_adb_shell(f"pm list packages {pkg}")
+    return f"package:{pkg}" in res
+
 def check_connection():
     devs = run_adb(["devices"])
     lines = [line.strip() for line in devs.splitlines() if line.strip()]
@@ -412,6 +424,194 @@ def step_manage_jiostore_apps():
     else:
         print("[*] Returning to main menu.")
 
+def step_package_manager():
+    while True:
+        print("\n" + "=" * 65)
+        print("  PACKAGE MANAGER: Enable / Disable Control Center")
+        print("=" * 65)
+        print("  [1] Freeze / Disable ALL Bloatware Packages (Safe Debloat)")
+        print("  [2] Unfreeze / Enable ALL Stock Packages (Restore all services)")
+        print("  [3] Toggle JioStore (com.jio.store)")
+        print("  [4] Toggle TR-069 Client (com.jio.tr069client) [Required for ADB on JHS!]")
+        print("  [5] Toggle Jio Voice Assistant (com.android.app.jio.voiceassist)")
+        print("  [6] Scan & Show Status of all Jio/Iwedia packages")
+        print("  [7] On-Device Shizuku + Hail/Canta TV Management Guide (No PC needed)")
+        print("  [8] Return to Main Menu")
+
+        sub = input("\nEnter choice [1-8, default: 8]: ").strip()
+        if not sub or sub == "8":
+            break
+
+        if sub == "1":
+            print("\n  [*] Freezing all bloatware packages...")
+            for pkg in SAFE_DEBLOAT_PACKAGES:
+                run_adb_shell(f"pm disable-user --user 0 {pkg}")
+            print("  [+] All bloatware packages disabled successfully!")
+        elif sub == "2":
+            print("\n  [*] Unfreezing all stock packages...")
+            for pkg in SAFE_DEBLOAT_PACKAGES:
+                run_adb_shell(f"pm enable {pkg}")
+            run_adb_shell("pm enable com.jio.store")
+            run_adb_shell("pm enable com.jio.tr069client")
+            run_adb_shell("pm enable com.android.app.jio.voiceassist")
+            print("  [+] All stock packages re-enabled successfully!")
+        elif sub == "3":
+            pkg = "com.jio.store"
+            if is_package_disabled(pkg):
+                print(f"  [*] Enabling {pkg}...")
+                run_adb_shell(f"pm enable {pkg}")
+                print(f"  [+] {pkg} is now ENABLED.")
+            else:
+                print(f"  [*] Freezing {pkg}...")
+                run_adb_shell(f"pm disable-user --user 0 {pkg}")
+                run_adb_shell(f"am force-stop {pkg}")
+                print(f"  [+] {pkg} is now DISABLED (Frozen).")
+        elif sub == "4":
+            pkg = "com.jio.tr069client"
+            if is_package_disabled(pkg):
+                print(f"  [*] Enabling {pkg}...")
+                run_adb_shell(f"pm enable {pkg}")
+                print(f"  [+] {pkg} is now ENABLED.")
+            else:
+                print("\n  [!] CRITICAL WARNING FOR JHS BOXES (JHSC200 / JHSD200):")
+                print("      com.jio.tr069client sets 'service.adb.tcp.port=5555' at boot.")
+                print("      Disabling it may cause ADB network access to drop after reboot!")
+                confirm = input("      Are you sure you want to disable com.jio.tr069client? [y/N]: ").strip().lower()
+                if confirm == "y":
+                    run_adb_shell(f"pm disable-user --user 0 {pkg}")
+                    run_adb_shell(f"am force-stop {pkg}")
+                    print(f"  [+] {pkg} is now DISABLED.")
+                else:
+                    print("  [*] Cancelled. Keeping com.jio.tr069client enabled.")
+        elif sub == "5":
+            pkg = "com.android.app.jio.voiceassist"
+            if is_package_disabled(pkg):
+                print(f"  [*] Enabling {pkg}...")
+                run_adb_shell(f"pm enable {pkg}")
+                print(f"  [+] {pkg} is now ENABLED.")
+            else:
+                print(f"  [*] Disabling {pkg}...")
+                run_adb_shell(f"pm disable-user --user 0 {pkg}")
+                run_adb_shell(f"am force-stop {pkg}")
+                print(f"  [+] {pkg} is now DISABLED.")
+        elif sub == "6":
+            print("\n  [*] Querying package status on STB...")
+            packages_to_check = SAFE_DEBLOAT_PACKAGES + [
+                "com.jio.store",
+                "com.jio.tr069client",
+                "com.android.app.jio.voiceassist",
+                "com.media.jio.sso.stb",
+                "com.iwedia.ui.rjio.launcher.reliance"
+            ]
+            print(f"\n  {'PACKAGE NAME':<42} {'STATUS'}")
+            print("  " + "-" * 57)
+            for pkg in packages_to_check:
+                if is_package_disabled(pkg):
+                    status = "[DISABLED / FROZEN]"
+                elif is_package_enabled(pkg):
+                    status = "[ENABLED / ACTIVE]"
+                elif is_package_installed(pkg):
+                    status = "[INSTALLED]"
+                else:
+                    status = "[NOT PRESENT / UNINSTALLED]"
+                print(f"  {pkg:<42} {status}")
+            input("\n  Press Enter to continue...")
+        elif sub == "7":
+            print("\n  " + "=" * 60)
+            print("  SHIZUKU / SHEVERY ON-DEVICE PACKAGE MANAGEMENT GUIDE")
+            print("  " + "=" * 60)
+            print("  You do NOT need a PC to freeze or unfreeze apps every week!")
+            print("  You can do it directly from your TV sofa using your remote:")
+            print("\n  1. Launch Shevery (Bundled in apks/shevery-release.apk):")
+            print("     Shevery runs an on-device Shizuku ADB daemon with shell (uid=2000).")
+            print("  2. Install 'Hail' or 'Canta' (Open-source App Freezers):")
+            print("     - Hail is an open-source Android TV app freezer with full D-pad support.")
+            print("     - In Hail settings, choose Working Mode: 'Shizuku'.")
+            print("  3. Create App Tags / 1-Click Freezing on TV:")
+            print("     - Add 'com.jio.store' to Hail.")
+            print("     - Freeze JioStore when not in use to block bloat.")
+            print("     - Unfreeze JioStore with 1 remote click when you need to install an app")
+            print("       or refresh your weekly JioFiber OTT subscriptions!")
+            print("  " + "=" * 60)
+            input("\n  Press Enter to continue...")
+
+def step_voice_troubleshoot():
+    print("\n" + "=" * 65)
+    print("  VOICE RECOGNITION & REMOTE DIAGNOSTIC / REPAIR TOOL")
+    print("=" * 65)
+    print("  Diagnosing Voice Assistant issues (Circle opens, but voice is null)...")
+
+    # 1. Check Voice Recognition Services
+    int_srv = run_adb_shell("settings get secure voice_interaction_service")
+    rec_srv = run_adb_shell("settings get secure voice_recognition_service")
+    print(f"\n  [*] Current voice_interaction_service: {int_srv or 'null / unset'}")
+    print(f"  [*] Current voice_recognition_service: {rec_srv or 'null / unset'}")
+
+    # 2. Check Package Status
+    va_pkg = "com.android.app.jio.voiceassist"
+    va_enabled = is_package_enabled(va_pkg)
+    print(f"  [*] Jio Voice Assistant ({va_pkg}): {'ENABLED' if va_enabled else 'DISABLED/FROZEN'}")
+
+    # 3. Check CleanYourTV mic interception
+    print("\n  [*] Checking CleanYourTV / TVHome hotkey configuration...")
+    clean_cfg = run_adb_shell("cat /sdcard/Android/data/com.gathin.tvhome/files/config.json")
+    has_mic_intercept = ("231" in clean_cfg) or ("KEYCODE_VOICE_ASSIST" in clean_cfg) or ("84" in clean_cfg)
+    if has_mic_intercept:
+        print("  [!] WARNING: CleanYourTV is currently intercepting KeyCode 231 / Mic button!")
+        print("      Intercepting KeyCode 231 breaks the Bluetooth Low Energy (BLE)")
+        print("      GATT audio stream (ServiceBleVoiceRead), causing recognized text to be null.")
+    else:
+        print("  [+] CleanYourTV is NOT intercepting KeyCode 231 (Correct).")
+
+    print("\n  Available Actions:")
+    print("  [1] Apply Complete Voice Repair")
+    print("      (Re-enable Voice Assistant + Grant Mic Permission + Reset Voice Service + Remove CleanYourTV Mic Intercept)")
+    print("  [2] Bluetooth Remote BLE GATT Re-Pairing Instructions")
+    print("  [3] Return to Main Menu")
+
+    act = input("\nEnter choice [1-3, default: 1]: ").strip()
+    if not act or act == "1":
+        print("\n  [*] Applying Voice Repair...")
+        run_adb_shell(f"pm enable {va_pkg}")
+        run_adb_shell(f"pm grant {va_pkg} android.permission.RECORD_AUDIO")
+        run_adb_shell("settings put secure voice_recognition_service com.android.app.jio.voiceassist/.VoiceRecognitionService")
+
+        if has_mic_intercept:
+            print("  [*] Removing KeyCode 231 from CleanYourTV configuration...")
+            try:
+                cfg_obj = json.loads(clean_cfg)
+                if "keys" in cfg_obj:
+                    cfg_obj["keys"] = [k for k in cfg_obj["keys"] if k.get("keyCode") not in [231, 84]]
+                if "keyMappings" in cfg_obj:
+                    cfg_obj["keyMappings"] = [k for k in cfg_obj["keyMappings"] if k.get("keyCode") not in [231, 84]]
+                tmp_cfg = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config_fixed.json")
+                with open(tmp_cfg, "w", encoding="utf-8") as f:
+                    json.dump(cfg_obj, f, indent=2)
+                run_adb(f'push "{tmp_cfg}" /sdcard/Android/data/com.gathin.tvhome/files/config.json')
+                if os.path.exists(tmp_cfg):
+                    os.remove(tmp_cfg)
+                print("  [+] KeyCode 231 removed from CleanYourTV.")
+            except Exception as e:
+                print(f"  [-] Note: Could not auto-edit CleanYourTV config: {e}")
+
+        print("\n  [+] System settings updated successfully!")
+        print("\n  [CRITICAL FINAL STEP: BLUETOOTH BLE AUDIO RE-PAIRING]")
+        print("  Because the remote's BLE GATT audio stream was hung, you MUST re-pair the remote:")
+        print("  1. Press and hold 'Back' + 'Menu' simultaneously on your Jio Remote for 5 seconds.")
+        print("  2. The status LED on the remote will start blinking rapidly.")
+        print("  3. On TV Settings -> Remotes & Accessories, select 'JioRemote' to re-pair.")
+        print("  4. Press and hold the Mic button while speaking. Transcription will now work!")
+        input("\n  Press Enter to continue...")
+    elif act == "2":
+        print("\n  --- BLUETOOTH BLE REMOTE RE-PAIRING GUIDE ---")
+        print("  1. Press and hold 'Back' + 'Menu' simultaneously on your Jio Remote for 5 seconds.")
+        print("  2. When the LED blinks, open Settings -> Remotes & Accessories on your TV.")
+        print("  3. Re-pair 'JioRemote'. This resets the proprietary BLE GATT voice characteristics:")
+        print("     - Service UUID: 8980f798-0614-11ea-8d71-362b9e155667")
+        print("     - Audio Data:   8980f9fa-0614-11ea-8d71-362b9e155667")
+        print("     - Audio Control:8980f9fb-0614-11ea-8d71-362b9e155667")
+        input("\n  Press Enter to continue...")
+
 def step_revert_stock():
     print("\n" + "=" * 60)
     print("  REVERT: Restoring Stock Jio Launcher & Services")
@@ -456,10 +656,12 @@ def main():
     print("  3) Install Bundled Utility APKs Only")
     print("  4) Configure Launcher & Remote Hotkeys Only")
     print("  5) Manage JioStore & Non-GMS Apps (Fix Zee5/SonyLIV crashes)")
-    print("  6) Revert / Restore Stock Jio Launcher & Services")
-    print("  7) Exit")
+    print("  6) Package Manager & Toggle Center (Enable/Disable for All or Individual)")
+    print("  7) Voice Recognition & Remote Diagnostic / Repair Tool")
+    print("  8) Revert / Restore Stock Jio Launcher & Services")
+    print("  9) Exit")
 
-    choice = input("\nEnter choice [1-7, default: 1]: ").strip()
+    choice = input("\nEnter choice [1-9, default: 1]: ").strip()
     if not choice:
         choice = "1"
 
@@ -486,8 +688,12 @@ def main():
     elif choice == "5":
         step_manage_jiostore_apps()
     elif choice == "6":
-        step_revert_stock()
+        step_package_manager()
     elif choice == "7":
+        step_voice_troubleshoot()
+    elif choice == "8":
+        step_revert_stock()
+    elif choice == "9":
         print("Exiting.")
         sys.exit(0)
     else:

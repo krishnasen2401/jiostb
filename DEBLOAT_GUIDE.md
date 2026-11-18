@@ -76,6 +76,42 @@ pm disable-user --user 0 com.netflix.partnertoken
 # pm disable-user --user 0 com.android.app.jio.voiceassist
 ```
 
+#### Batch Commands: Enable / Disable for All
+```bash
+# --- 1-Click Freeze ALL Bloatware Packages ---
+for pkg in com.iwedia.updateservice com.iwedia.httpupdate com.iwedia.pvodupdateservice \
+           com.iwedia.updatercuotaservice com.jio.stbadservice com.jio.bioscopecontentservice \
+           com.jio.screensaver com.jio.jiobackgroundscheduler com.jio.appoptimizer \
+           com.jio.adc.embedded com.jio.adc.aka com.jio.systemstats com.rjil.jiostblogservice \
+           com.jio.stb.remotediagnose com.jio.universalsetup com.netflix.partnertoken; do
+    pm disable-user --user 0 $pkg
+done
+
+# --- 1-Click Restore / Unfreeze ALL Packages ---
+for pkg in com.iwedia.updateservice com.iwedia.httpupdate com.iwedia.pvodupdateservice \
+           com.iwedia.updatercuotaservice com.jio.stbadservice com.jio.bioscopecontentservice \
+           com.jio.screensaver com.jio.jiobackgroundscheduler com.jio.appoptimizer \
+           com.jio.adc.embedded com.jio.adc.aka com.jio.systemstats com.rjil.jiostblogservice \
+           com.jio.stb.remotediagnose com.jio.universalsetup com.netflix.partnertoken \
+           com.jio.store com.jio.tr069client com.android.app.jio.voiceassist; do
+    pm enable $pkg
+done
+
+# --- Check Current Disabled vs. Enabled Packages ---
+pm list packages -d   # Lists all currently frozen/disabled packages
+pm list packages -e   # Lists all active/enabled packages
+```
+
+#### Alternative: On-Device Freeze/Unfreeze via Shizuku / Shevery (No PC Required!)
+You do **not** need a PC to freeze or unfreeze `com.jio.store` or bloatware every week. You can control it right from your TV sofa:
+1. **Shevery (`apks/shevery-release.apk`)**: Bundled in this toolkit, Shevery runs an on-device Shizuku ADB daemon (`uid=2000`).
+2. **Hail / Canta (Open-Source Package Freezers)**:
+   - Install **Hail** (available on F-Droid / GitHub with native TV D-pad navigation).
+   - In Hail Settings, select Working Mode $\to$ **Shizuku**.
+   - Create a list/tag containing `com.jio.store` and bloatware apps.
+   - Whenever you want to freeze or unfreeze apps, simply open Hail on your TV and press the remote Select button!
+   - *Note on `com.jio.tr069client`:* Keep `com.jio.tr069client` enabled on JHS series so ADB port 5555 remains active after reboot without having to re-pair Shizuku wirelessly.
+
 ### C. Install & Configure Custom Launcher (Projectivy or Monet)
 
 Both **Projectivy Launcher** and **Monet Launcher** are included prebuilt in [`apks/`](apks/):
@@ -341,9 +377,38 @@ If the remote disconnects or you need to re-pair it:
 2. Navigate to **Remotes & Accessories** $\to$ **Add Accessory**.
 3. On the Jio Voice Remote, press and hold the **`Back` + `Menu`** buttons simultaneously for 5 seconds until the blue/red status LED blinks rapidly.
 4. Select **JioRemote** on the TV screen to complete Bluetooth pairing. Microphones, volume keys, and custom hotkeys will resume working immediately.
-```bash
-settings put secure enabled_accessibility_services com.gathin.tvhome/.InputKeyService
-```
+
+#### 4. Troubleshooting: Voice Circle Opens, Voice Button Works, but Recognized Text is Null / Empty
+
+If pressing the Mic button displays the Jio Voice Assistant floating circle icon on screen, but speaking into the remote results in no text transcription (`recognized text: null` or `"intent": "error: empty input"`):
+
+> [!IMPORTANT]
+> **Root Causes Discovered:**
+> 1. **Accessibility Key Interception:** If CleanYourTV (`com.gathin.tvhome`) or KeyMapper had KeyCode `231` (`KEYCODE_VOICE_ASSIST`) or `84` (`KEYCODE_SEARCH`) mapped, Android's accessibility service intercepts the key event. This prevents the native Bluetooth Low Energy (BLE) GATT audio stream (`ServiceBleVoiceRead` on UUID `8980f798-0614-11ea-8d71-362b9e155667`) from initializing.
+> 2. **BLE GATT Audio Stream Hang:** Even after removing the mic interception from CleanYourTV, Android's Bluetooth stack keeps the BLE voice profile in a hung state. **The remote MUST be un-paired and re-paired** (`Back` + `Menu` for 5 seconds) to reset the GATT audio characteristic.
+> 3. **Jio Cloud ASR Telemetry Blocked:** Jio Assistant sends raw audio to Jio's cloud ASR servers (`voice.jio.com`). If account services (`com.jio.universalsetup`, `com.jio.media.stb.account`) were debloated or DNS is blocking Jio domains, cloud transcription returns `null`.
+> 4. **Voice Service Redirection:** If `voice_recognition_service` was pointed to Google without Google Play Services / Google App installed.
+
+**Step-by-Step Fix:**
+1. **Run Diagnostic Queries on STB via ADB:**
+   ```bash
+   # Check installed voice packages
+   adb shell pm list packages | findstr /i "voice speech google recognizer assistant jio"
+   # Check enabled voice packages
+   adb shell pm list packages -e | findstr /i "voice speech google recognizer assistant jio"
+   # Check disabled packages
+   adb shell pm list packages -d
+   # Check system voice services
+   adb shell settings get secure voice_interaction_service
+   adb shell settings get secure voice_recognition_service
+   ```
+2. **Apply 1-Click Fix:**
+   Run `python post_adb_setup.py` and select **Option 7 (`Voice Recognition & Remote Diagnostic / Repair Tool`)**. It will automatically:
+   - Ensure `com.android.app.jio.voiceassist` is enabled with `RECORD_AUDIO` permission.
+   - Reset `voice_recognition_service` to `com.android.app.jio.voiceassist/.VoiceRecognitionService`.
+   - Remove any lingering KeyCode 231 mappings from CleanYourTV `config.json`.
+3. **Reset Remote BLE GATT Stream:**
+   Press and hold **`Back` + `Menu`** on the remote for 5 seconds until the LED flashes, then re-pair **JioRemote** under **Settings $\to$ Remotes & Accessories**. Transcription will now work properly!
 
 ---
 
