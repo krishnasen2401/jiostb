@@ -60,9 +60,14 @@ pm disable-user --user 0 com.jio.adc.aka
 pm disable-user --user 0 com.jio.systemstats
 pm disable-user --user 0 com.rjil.jiostblogservice
 pm disable-user --user 0 com.jio.stb.remotediagnose
-# Optional: com.jio.store is intentionally preserved!
-# Jio STB lacks Google Play Services (GMS). JioStore provides official
-# AOSP-tailored versions of Zee5, SonyLIV, etc. that do not crash.
+# CRITICAL: Preserve com.jio.store and com.jio.tr069client!
+# 1. Bundled JioFiber OTT Subscriptions (Hotstar, Zee5, SonyLIV, JioCinema)
+#    require periodic weekly heartbeats to refresh subscriber plan tokens.
+#    Permanently disabling JioStore or blocking TR-069 pings will cause
+#    your active OTT subscriptions to expire or become disabled!
+# 2. Jio STBs lack Google Play Services (GMS). JioStore provides official
+#    AOSP-tailored versions of Zee5, SonyLIV, etc. that do not crash.
+# 3. On JHS series, com.jio.tr069client is also required to keep ADB (port 5555) active on boot!
 # pm disable-user --user 0 com.jio.store
 pm disable-user --user 0 com.jio.universalsetup
 pm disable-user --user 0 com.netflix.partnertoken
@@ -484,6 +489,12 @@ To prevent this bloat while still getting official non-crashing apps, use the **
    adb shell am force-stop com.jio.store
    ```
 4. **Result:** Your installed TV apps remain fully functional and play flawlessly, but JioStore is frozen and **cannot push background bloatware, ads, or auto-install unwanted games**!
+
+> [!IMPORTANT]
+> **Weekly Heartbeat Notice for Bundled JioFiber OTT Subscriptions:**  
+> If your JioFiber / AirFiber recharge plan includes bundled OTT apps (**Disney+ Hotstar**, **SonyLIV**, **Zee5**, **JioCinema Premium**, etc.), the STB must communicate with Jio's backend servers via `com.jio.tr069client` and `com.jio.store` at least **once a week** to refresh active subscription entitlement tokens.  
+> If you permanently delete JioStore or block TR-069, your bundled OTT subscriptions may display *"Inactive / Subscription Expired"* after 7–14 days.  
+> **Recommended Best Practice:** Always keep `com.jio.tr069client` enabled (which also preserves ADB on boot). If you froze `com.jio.store`, simply unfreeze it briefly once a week (`adb shell pm enable com.jio.store`) while connected to your home Jio Wi-Fi to let your plan tokens refresh, then freeze it again.
 
 ### Solution 2: Install microG GmsCore Companion
 If you prefer not using JioStore and wish to run standard Android TV APKs from APKMirror:
