@@ -174,6 +174,7 @@ Double-click **`1CLICK_POST_ADB_SETUP.bat`** (or run `python post_adb_setup.py`)
 | 🎮 **`TVHome.apk` (CleanYourTV)** | Dedicated remote hotkey mapper: remap Netflix, Hotstar, Prime, and physical Mic/Voice buttons to launch custom apps. |
 | ⚙️ **`AndroidSettingsShortcut.apk`** | Direct launcher for native Android TV Settings (`com.android.tv.settings`) — used for Bluetooth audio pairing, Wi-Fi configuration, and Developer Options. |
 | 📺 **`mediashell.apk`** | Production Google Cast receiver update enabling genuine Chromecast built-in streaming. |
+| 🎙️ **`micbridge.apk`** | **Sideloaded Voice Input Bridge (No Root):** Bridges Jio BLE Remote mic to sideloaded apps (SmartTube, Stremio, Kodi, TV Bro). Captures speech via Jio cloud ASR and auto-injects transcribed text directly into search fields. |
 | 📱 **`OpenShelf-0.7.0.apk`** | FOSS Android TV App Store connecting directly to GitHub releases. |
 | 🐚 **`shevery-release.apk`** | On-device Shizuku shell (`uid=2000`) for PC-free package management. |
 
@@ -185,6 +186,16 @@ The setup script automatically sideloads the official production update:
 adb install -r apks/mediashell.apk
 ```
 The STB immediately registers with Google Cast client ID and broadcasts across your local Wi-Fi network as a genuine Chromecast built-in receiver (e.g. "Living Room TV").
+
+### Voice Search in Sideloaded Apps (SmartTube, Stremio, Kodi)
+Stock Jio firmware blocks third-party apps from accessing the remote's microphone (`Access of Recognition service denied`). 
+
+The toolkit bundles **[Lucifer7535/micbridge](https://github.com/Lucifer7535/micbridge)** (`apks/micbridge.apk`), an accessibility bridge that unlocks voice search in all sideloaded apps without requiring root:
+1. When you focus on any search bar in SmartTube, Stremio, Kodi, or TV Bro and press the physical remote **Mic** button, Jio's voice assistant pops up.
+2. Speak your search query normally (e.g. *"Inception trailer"* or *"Lofi music"*).
+3. MicBridge captures the transcribed speech from the Jio overlay, dismisses the overlay with a back key event, and auto-injects the text straight into your search field!
+
+It is installed and enabled automatically during **1-Click Full Setup**, or selectable manually via **Option 7 $\to$ Option 2** in `post_adb_setup.py`.
 
 > [!TIP]
 > For complete instructions on permanently replacing the iWedia launcher, configuring custom button mappings, and logging into JioTV+ on any non-Jio ISP using mobile OTP, see the **[`DEBLOAT_GUIDE.md`](DEBLOAT_GUIDE.md)**!

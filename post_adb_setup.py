@@ -224,6 +224,7 @@ def step_install_apks():
         ("Android TV Settings Shortcut", "AndroidSettingsShortcut.apk"),
         ("Jio Settings Shortcut", "JioSettingsShortcut.apk"),
         ("TVHome (CleanYourTV Hotkeys)", "TVHome.apk"),
+        ("MicBridge (Voice Input for Sideloaded Apps)", "micbridge.apk"),
     ]
 
     for label, filename in apk_files:
@@ -245,6 +246,15 @@ def step_install_apks():
     run_adb_shell("pm grant io.github.sds100.keymapper android.permission.WRITE_SECURE_SETTINGS")
     run_adb_shell("pm grant com.spocky.projengmenu android.permission.WRITE_SECURE_SETTINGS")
     run_adb_shell("pm grant com.klevico.monet android.permission.WRITE_SECURE_SETTINGS")
+
+    # Enable MicBridge accessibility service if installed
+    cur_a11y = run_adb_shell("settings get secure enabled_accessibility_services").strip()
+    mb_svc = "dev.dedsec.micbridge/.MicA11yService"
+    if mb_svc not in cur_a11y:
+        new_a11y = mb_svc if not cur_a11y or cur_a11y == "null" else f"{cur_a11y}:{mb_svc}"
+        run_adb_shell("settings put secure accessibility_enabled 0")
+        run_adb_shell(f'settings put secure enabled_accessibility_services "{new_a11y}"')
+        run_adb_shell("settings put secure accessibility_enabled 1")
 
 def step_configure_launcher():
     print("\n" + "=" * 60)
@@ -565,16 +575,20 @@ def step_voice_troubleshoot():
 
     print("\n  Available Actions:")
     print("  [1] Apply Complete Voice Repair")
-    print("      (Re-enable Voice Assistant + Grant Mic Permission + Reset Voice Service + Remove CleanYourTV Mic Intercept)")
-    print("  [2] Bluetooth Remote BLE GATT Re-Pairing Instructions")
-    print("  [3] Return to Main Menu")
+    print("      (Re-enable Voice Assistant + Grant Mic Permission + Restore Profile Providers + Reset Voice Service)")
+    print("  [2] Install & Enable MicBridge (Mic Input Fix for Sideloaded Apps: SmartTube, Stremio, Kodi, etc.)")
+    print("  [3] Bluetooth Remote BLE GATT Re-Pairing Instructions")
+    print("  [4] Return to Main Menu")
 
-    act = input("\nEnter choice [1-3, default: 1]: ").strip()
+    act = input("\nEnter choice [1-4, default: 1]: ").strip()
     if not act or act == "1":
         print("\n  [*] Applying Voice Repair...")
         run_adb_shell(f"pm enable {va_pkg}")
         run_adb_shell(f"pm grant {va_pkg} android.permission.RECORD_AUDIO")
+        run_adb_shell("cmd package install-existing com.jio.profileutility")
+        run_adb_shell("cmd package install-existing com.jio.universalsetup")
         run_adb_shell("settings put secure voice_recognition_service com.android.app.jio.voiceassist/.VoiceRecognitionService")
+        run_adb_shell("settings put secure tts_default_synth com.svox.pico")
 
         if has_mic_intercept:
             print("  [*] Removing KeyCode 231 from CleanYourTV configuration...")
@@ -603,6 +617,32 @@ def step_voice_troubleshoot():
         print("  4. Press and hold the Mic button while speaking. Transcription will now work!")
         input("\n  Press Enter to continue...")
     elif act == "2":
+        print("\n  [*] Installing & Enabling MicBridge for Sideloaded Apps...")
+        apk_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "apks", "micbridge.apk")
+        if not os.path.exists(apk_path):
+            print(f"  [-] Error: {apk_path} not found!")
+            input("\n  Press Enter to continue...")
+            return
+        run_adb(f'install -r -g "{apk_path}"')
+        cur_a11y = run_adb_shell("settings get secure enabled_accessibility_services").strip()
+        mb_svc = "dev.dedsec.micbridge/.MicA11yService"
+        if mb_svc in cur_a11y:
+            new_a11y = cur_a11y
+        elif not cur_a11y or cur_a11y == "null":
+            new_a11y = mb_svc
+        else:
+            new_a11y = f"{cur_a11y}:{mb_svc}"
+        run_adb_shell("settings put secure accessibility_enabled 0")
+        run_adb_shell(f'settings put secure enabled_accessibility_services "{new_a11y}"')
+        run_adb_shell("settings put secure accessibility_enabled 1")
+        print("\n  [+] MicBridge installed and Accessibility Service enabled!")
+        print("  How to use:")
+        print("  1. Open any sideloaded app (SmartTube, Stremio, Kodi, TV Bro, etc.).")
+        print("  2. Open its search box.")
+        print("  3. Press the Mic button on the remote and speak.")
+        print("  4. Jio voice overlay will capture speech, and MicBridge will auto-inject the text!")
+        input("\n  Press Enter to continue...")
+    elif act == "3":
         print("\n  --- BLUETOOTH BLE REMOTE RE-PAIRING GUIDE ---")
         print("  1. Press and hold 'Back' + 'Menu' simultaneously on your Jio Remote for 5 seconds.")
         print("  2. When the LED blinks, open Settings -> Remotes & Accessories on your TV.")

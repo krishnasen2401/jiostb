@@ -410,6 +410,42 @@ If pressing the Mic button displays the Jio Voice Assistant floating circle icon
 3. **Reset Remote BLE GATT Stream:**
    Press and hold **`Back` + `Menu`** on the remote for 5 seconds until the LED flashes, then re-pair **JioRemote** under **Settings $\to$ Remotes & Accessories**. Transcription will now work properly!
 
+#### 5. Sideloaded Apps Voice Input Fix: Lucifer7535/MicBridge (SmartTube, Stremio, Kodi, etc.)
+
+**The Sideloaded Mic Problem on Jio STBs:**
+On stock TeleOS / Jio firmware, third-party sideloaded apps (such as SmartTube, Stremio, Kodi, TV Bro, etc.) cannot use the remote control microphone. When you click the search mic icon in these apps, you get:
+```text
+No allowed app found. Access of Recognition service denied
+```
+or the microphone simply does not respond. This happens because:
+1. The remote mic button (`KEYCODE_VOICE_ASSIST` 231) is hardwired inside `system_server` (`IWediaJioPodsHelper`) to unconditionally summon `com.android.app.jio.voiceassist`.
+2. Jio's internal `VoiceRecognitionService` enforces strict package-allowlist restrictions that reject any app not signed by Jio or Google.
+3. The remote sends raw compressed voice packets over a proprietary Bluetooth Low Energy (BLE) GATT audio stream (`ServiceBleVoiceRead` on UUID `8980f798-0614-11ea-8d71-362b9e155667`), which standard Android audio recording HALs cannot read directly without root.
+
+**The Solution — [Lucifer7535/micbridge](https://github.com/Lucifer7535/micbridge):**
+Instead of fighting the hardwired key or requiring root access, **MicBridge** uses Android's Accessibility framework (`dev.dedsec.micbridge/.MicA11yService`) to bridge the gap seamlessly:
+1. When you focus on a search field in SmartTube, Stremio, Kodi, or TV Bro and press the physical remote **Mic** button, the Jio Voice Assistant overlay pops up as usual.
+2. Speak your search query normally (e.g. *"Inception trailer"*, *"Lofi music"*).
+3. Jio's cloud ASR transcribes the audio into its floating overlay (`:id/voiceStatesView`).
+4. **MicBridge instantly reads the transcribed text, sends a back key event (`GLOBAL_ACTION_BACK`) to dismiss the Jio overlay, and injects the text via `ACTION_SET_TEXT` directly into the foreground app's search box!**
+
+**How to Install & Enable MicBridge:**
+* **Via Toolkit (Recommended):**
+  Run `1CLICK_POST_ADB_SETUP.bat` (or `python post_adb_setup.py`), choose **Option 7** (`Voice Recognition & Remote Diagnostic / Repair Tool`), then select **Option 2** (`Install & Enable MicBridge`).
+  *(Note: 1-Click Full Setup Option 1 also installs and enables MicBridge automatically).*
+* **Via Manual ADB Commands:**
+  ```bash
+  adb install -r -g apks/micbridge.apk
+  adb shell settings put secure accessibility_enabled 0
+  adb shell settings put secure enabled_accessibility_services "dev.dedsec.micbridge/.MicA11yService"
+  adb shell settings put secure accessibility_enabled 1
+  ```
+* **Verify Service Status:**
+  ```bash
+  adb logcat -d -s MicBridge
+  # Confirms: "MicBridge: service connected; flags=... home=com.spocky.projengmenu"
+  ```
+
 ---
 
 ## 7. Low-Level Network Discoveries & System Mechanics
