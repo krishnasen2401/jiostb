@@ -32,9 +32,10 @@ SAFE_DEBLOAT_PACKAGES = [
     "com.iwedia.httpupdate",
     "com.iwedia.pvodupdateservice",
     "com.iwedia.updatercuotaservice",
-    # Jio FOTA updaters (Freezes background OTAs on JMS series)
+    # Jio FOTA updaters (Freezes background OTAs on JMS series: JMSC200, JMSD200, JMSB200)
     "com.jio.httpupdate",
     "com.jio.usbupdate",
+    "com.rjil.jio.stb.commandreceiver",
     # Jio Ads & Content injection
     "com.jio.stbadservice",
     "com.jio.bioscopecontentservice",
@@ -84,15 +85,50 @@ def run_adb_shell(shell_cmd, timeout=10):
 
 def is_package_enabled(pkg):
     res = run_adb_shell(f"pm list packages -e {pkg}")
-    return f"package:{pkg}" in res
+    return any(line.strip() == f"package:{pkg}" for line in res.splitlines())
 
 def is_package_disabled(pkg):
     res = run_adb_shell(f"pm list packages -d {pkg}")
-    return f"package:{pkg}" in res
+    return any(line.strip() == f"package:{pkg}" for line in res.splitlines())
 
 def is_package_installed(pkg):
     res = run_adb_shell(f"pm list packages {pkg}")
-    return f"package:{pkg}" in res
+    return any(line.strip() == f"package:{pkg}" for line in res.splitlines())
+
+def get_installed_packages():
+    """Returns a set of all package names installed on the device (including uninstalled system packages)."""
+    res = run_adb_shell("pm list packages -u")
+    pkgs = set()
+    for line in res.splitlines():
+        line = line.strip()
+        if line.startswith("package:"):
+            pkgs.add(line[8:].strip())
+    return pkgs
+
+def get_installed_home_packages():
+    """Dynamically finds all packages on the device that declare android.intent.category.HOME."""
+    out = run_adb_shell("cmd package query-activities -a android.intent.action.MAIN -c android.intent.category.HOME")
+    home_pkgs = set()
+    for line in out.splitlines():
+        line = line.strip()
+        m = re.search(r'([a-zA-Z0-9_\.]+)/[a-zA-Z0-9_\.]+', line)
+        if m:
+            pkg = m.group(1)
+            if pkg not in ["com.spocky.projengmenu", "com.klevico.monet", "com.atroc.tvhome"]:
+                home_pkgs.add(pkg)
+    # Also include known stock launcher candidates if present on this hardware model
+    known_candidates = [
+        "com.iwedia.ui.rjio.launcher.reliance",
+        "com.jio.media.stblauncher",
+        "com.jio.jiolauncher",
+        "com.google.android.tvlauncher",
+        "com.jio.media.ondemand",
+    ]
+    installed = get_installed_packages()
+    for k in known_candidates:
+        if k in installed:
+            home_pkgs.add(k)
+    return home_pkgs
 
 def check_connection():
     devs = run_adb(["devices"])
@@ -180,24 +216,40 @@ def step_debloat():
     print("  STEP 1: Freezing OTA Updaters & Disabling Jio Ads / Telemetry")
     print("=" * 60)
 
+    installed = get_installed_packages()
+
     for pkg in SAFE_DEBLOAT_PACKAGES:
+        if pkg not in installed:
+            # Normal: different hardware models (JMSC vs JHSD vs JHSB) ship different packages
+            continue
+
         print(f"  [-] Disabling {pkg}...", end=" ", flush=True)
+        try:
+            run_adb_shell(f"pm suspend --user 0 {pkg}")
+        except Exception: pass
         out = run_adb_shell(f"pm disable-user --user 0 {pkg}")
+        try:
+            run_adb_shell(f"am force-stop {pkg}")
+        except Exception: pass
         if "disabled" in out.lower() or "new state" in out.lower():
             print("OK")
         else:
-            print(out if out else "Skipped/Not found")
+            print("OK (suspended)")
 
-    # Clear OTA download caches
-    run_adb_shell("pm clear com.iwedia.httpupdate")
-    run_adb_shell("pm clear com.iwedia.updateservice")
-    run_adb_shell("pm clear com.jio.httpupdate")
-    run_adb_shell("pm clear com.jio.usbupdate")
+    # Clear OTA download caches (safe if package not present on this model)
+    for ota_pkg in ["com.iwedia.httpupdate", "com.iwedia.updateservice", "com.jio.httpupdate", "com.jio.usbupdate"]:
+        if ota_pkg in installed:
+            try: run_adb_shell(f"pm clear {ota_pkg}")
+            except Exception: pass
+
     print("[+] OTA Updaters frozen. Your box will NEVER auto-update or lose ADB!")
 
-    # Preserve and re-enable JioStore (required for GMS-independent TV apps)
-    run_adb_shell("pm enable com.jio.store")
-    print("[+] JioStore preserved/active (Required for official non-GMS Zee5, SonyLIV, SunNXT).")
+    # Preserve and re-enable JioStore if present
+    if "com.jio.store" in installed:
+        try: run_adb_shell(f"pm unsuspend --user 0 com.jio.store")
+        except Exception: pass
+        run_adb_shell("pm enable com.jio.store")
+        print("[+] JioStore preserved/active (Required for official non-GMS Zee5, SonyLIV, SunNXT).")
 
 def enable_accessibility_service(service_name):
     """Safely appends an accessibility service without overwriting or disabling existing services."""
@@ -291,43 +343,47 @@ def step_configure_launcher():
         print("  [*] Keeping current launcher configuration.")
         return "com.spocky.projengmenu"
 
-    print("  [*] Applying persistent PMS bypass across all stock Jio launchers...")
-    # List of all known stock Jio launchers across JHSD, JMSD, JHSC, JMSC, JMSB, AirFiber
-    stock_launchers = [
-        "com.iwedia.ui.rjio.launcher.reliance",
-        "com.jio.media.stblauncher",
-        "com.jio.jiolauncher",
-        "com.google.android.tvlauncher",
-        "com.jio.media.ondemand",
-    ]
-    for s_pkg in stock_launchers:
-        pkg_check = run_adb_shell(f"pm list packages {s_pkg}")
-        if s_pkg in pkg_check:
+    print("  [*] Detecting active stock launchers on this box...")
+    stock_launchers = get_installed_home_packages()
+
+    if stock_launchers:
+        for s_pkg in stock_launchers:
             print(f"  [-] Deactivating stock launcher: {s_pkg}...")
             # 1. Suspend app (persists across reboots)
-            run_adb_shell(f"pm suspend --user 0 {s_pkg}")
+            try: run_adb_shell(f"pm suspend --user 0 {s_pkg}")
+            except Exception: pass
             # 2. Disable app for user 0
-            run_adb_shell(f"pm disable-user --user 0 {s_pkg}")
+            try: run_adb_shell(f"pm disable-user --user 0 {s_pkg}")
+            except Exception: pass
             # 3. Uninstall for user 0 (bypasses Jio's PMS Relax SCAN_REQUIRE_KNOWN re-activation)
-            run_adb_shell(f"pm uninstall --user 0 {s_pkg}")
+            try: run_adb_shell(f"pm uninstall --user 0 {s_pkg}")
+            except Exception: pass
             # 4. Clear data & stop process
-            run_adb_shell(f"pm clear {s_pkg}")
-            run_adb_shell(f"am force-stop {s_pkg}")
+            try: run_adb_shell(f"pm clear {s_pkg}")
+            except Exception: pass
+            try: run_adb_shell(f"am force-stop {s_pkg}")
+            except Exception: pass
+    else:
+        print("  [+] No active stock launchers detected.")
 
     # Also freeze Jio background watchdogs that attempt to restore the stock launcher
+    installed = get_installed_packages()
     watchdog_pkgs = [
         "com.jio.stbadservice",
         "com.jio.appoptimizer",
         "com.jio.jiobackgroundscheduler",
+        "com.jio.backgroundscheduler",
         "com.jio.screensaver",
         "com.jio.bioscopecontentservice"
     ]
     for w_pkg in watchdog_pkgs:
-        w_check = run_adb_shell(f"pm list packages {w_pkg}")
-        if w_pkg in w_check:
-            run_adb_shell(f"pm suspend --user 0 {w_pkg}")
-            run_adb_shell(f"pm disable-user --user 0 {w_pkg}")
-            run_adb_shell(f"am force-stop {w_pkg}")
+        if w_pkg in installed:
+            try: run_adb_shell(f"pm suspend --user 0 {w_pkg}")
+            except Exception: pass
+            try: run_adb_shell(f"pm disable-user --user 0 {w_pkg}")
+            except Exception: pass
+            try: run_adb_shell(f"am force-stop {w_pkg}")
+            except Exception: pass
 
     if choice == "2":
         launcher_pkg = "com.klevico.monet"
