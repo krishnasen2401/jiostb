@@ -254,15 +254,37 @@ def dot_blocker():
 
 def main():
     print(f"Network setup started on {SERVICE_ADDRESS}", flush=True)
+    threads = []
+
+    # 1. UDP DNS
     udp_dns = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     udp_dns.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    udp_dns.bind(('0.0.0.0', DNS_PORT))
-    
+    try:
+        udp_dns.bind(('0.0.0.0', DNS_PORT))
+    except (PermissionError, OSError) as e:
+        print(f"[!] Warning: Cannot bind 0.0.0.0:{DNS_PORT} ({e}). Retrying on {SERVICE_ADDRESS}:{DNS_PORT}...", flush=True)
+        try:
+            udp_dns.bind((SERVICE_ADDRESS, DNS_PORT))
+        except (PermissionError, OSError) as e2:
+            print(f"[ERROR] Port {DNS_PORT} (DNS) in use. Stop SharedAccess or Antivirus: {e2}", flush=True)
+            sys.exit(1)
+    threads.append(threading.Thread(target=udp_dns_loop, args=(udp_dns,), daemon=True))
+
+    # 2. DHCP Server
     dhcp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     dhcp.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     dhcp.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-    dhcp.bind(('0.0.0.0', DHCP_PORT))
-    
+    try:
+        dhcp.bind(('0.0.0.0', DHCP_PORT))
+    except (PermissionError, OSError) as e:
+        print(f"[!] Warning: Cannot bind 0.0.0.0:{DHCP_PORT} ({e}). Retrying on {SERVICE_ADDRESS}:{DHCP_PORT}...", flush=True)
+        try:
+            dhcp.bind((SERVICE_ADDRESS, DHCP_PORT))
+        except (PermissionError, OSError):
+            print(f"[!] Warning: DHCP binding on {SERVICE_ADDRESS}:{DHCP_PORT} failed.", flush=True)
+    threads.append(threading.Thread(target=dhcp_loop, args=(dhcp,), daemon=True))
+
+    # 3. NTP Server
     ntp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     ntp.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     ntp_bound = False
@@ -277,21 +299,27 @@ def main():
         except (PermissionError, OSError):
             print(f"[!] Warning: NTP port 123 unavailable (W32Time in use). Continuing without local NTP responder...", flush=True)
             ntp = None
-
-    dns_tcp = ThreadedDnsTcpServer(('0.0.0.0', DNS_PORT), DnsTcpHandler)
-
-    PID_FILE.write_text(str(os.getpid()), encoding="ascii")
-    threads = [
-        threading.Thread(target=udp_dns_loop, args=(udp_dns,), daemon=True),
-        threading.Thread(target=dhcp_loop, args=(dhcp,), daemon=True),
-        threading.Thread(target=dns_tcp.serve_forever, daemon=True),
-        threading.Thread(target=dot_blocker, daemon=True),
-        threading.Thread(target=http_portal_loop, daemon=True),
-    ]
     if ntp and ntp_bound:
         ntp.settimeout(1.0)
         threads.append(threading.Thread(target=ntp_loop, args=(ntp,), daemon=True))
 
+    # 4. TCP DNS
+    dns_tcp = None
+    try:
+        dns_tcp = ThreadedDnsTcpServer(('0.0.0.0', DNS_PORT), DnsTcpHandler)
+    except (PermissionError, OSError):
+        try:
+            dns_tcp = ThreadedDnsTcpServer((SERVICE_ADDRESS, DNS_PORT), DnsTcpHandler)
+        except (PermissionError, OSError):
+            print(f"[!] Warning: TCP DNS on port {DNS_PORT} unavailable. Using UDP DNS only.", flush=True)
+    if dns_tcp:
+        threads.append(threading.Thread(target=dns_tcp.serve_forever, daemon=True))
+
+    # 5. DoT & HTTP Portal
+    threads.append(threading.Thread(target=dot_blocker, daemon=True))
+    threads.append(threading.Thread(target=http_portal_loop, daemon=True))
+
+    PID_FILE.write_text(str(os.getpid()), encoding="ascii")
     for t in threads: t.start()
     print("Server is ready. Waiting for STB...", flush=True)
     try:
@@ -300,13 +328,18 @@ def main():
     except KeyboardInterrupt: pass
     finally:
         _running.clear()
-        udp_dns.close()
-        dhcp.close()
+        try: udp_dns.close()
+        except: pass
+        try: dhcp.close()
+        except: pass
         if ntp:
             try: ntp.close()
             except: pass
-        dns_tcp.shutdown()
-        dns_tcp.server_close()
+        if dns_tcp:
+            try:
+                dns_tcp.shutdown()
+                dns_tcp.server_close()
+            except: pass
         try: PID_FILE.unlink()
         except: pass
 

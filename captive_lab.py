@@ -295,18 +295,24 @@ def http_portal_loop():
         except: pass
 
 def dot_blocker():
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    s.bind(('0.0.0.0', 853))
-    s.listen(5)
-    s.settimeout(1.0)
-    while _running.is_set():
-        try:
-            conn, addr = s.accept()
-            conn.close()
-            print(f"DoT Request blocked from {addr[0]}", flush=True)
-        except socket.timeout: continue
-        except: break
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        s.bind(('0.0.0.0', 853))
+        s.listen(5)
+        s.settimeout(1.0)
+        while _running.is_set():
+            try:
+                conn, addr = s.accept()
+                conn.close()
+                print(f"DoT Request blocked from {addr[0]}", flush=True)
+            except socket.timeout: continue
+            except: break
+    except Exception as e:
+        print(f"[!] Warning: DoT blocker port 853 unavailable: {e}", flush=True)
+    finally:
+        try: s.close()
+        except: pass
 
 def main():
     print(f"Network setup started on {SERVICE_ADDRESS}", flush=True)
@@ -373,16 +379,21 @@ def main():
     # 4. NTP Server
     ntp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     ntp.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    ntp_bound = False
     try:
         ntp.bind(('0.0.0.0', 123))
+        ntp_bound = True
     except (PermissionError, OSError) as e:
         print(f"[!] Warning: Cannot bind 0.0.0.0:123 ({e}). Retrying on {SERVICE_ADDRESS}:123...", flush=True)
         try:
             ntp.bind((SERVICE_ADDRESS, 123))
+            ntp_bound = True
         except (PermissionError, OSError):
-            print(f"[!] Warning: NTP port 123 unavailable.", flush=True)
-    ntp.settimeout(1.0)
-    threads.append(threading.Thread(target=ntp_loop, args=(ntp,), daemon=True))
+            print(f"[!] Warning: NTP port 123 unavailable (W32Time in use). Continuing without local NTP responder...", flush=True)
+            ntp = None
+    if ntp and ntp_bound:
+        ntp.settimeout(1.0)
+        threads.append(threading.Thread(target=ntp_loop, args=(ntp,), daemon=True))
 
     # 5. DoT Blocker & HTTP Portal
     threads.append(threading.Thread(target=dot_blocker, daemon=True))

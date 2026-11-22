@@ -1,12 +1,12 @@
 #Requires -RunAsAdministrator
-$ErrorActionPreference = 'Stop'
+$ErrorActionPreference = 'Continue'
 $base = $PSScriptRoot
 $adapterName = 'Ethernet'
 $labAddress = '192.168.50.1'
 $labPrefix = 24
 
 Write-Host "Cleaning up lingering lab / mock ACS processes..."
-Get-NetTCPConnection -LocalPort 7443,8443,9443 -ErrorAction SilentlyContinue | ForEach-Object {
+Get-NetTCPConnection -LocalPort 53,80,443,7443,7547,8080,8443,9443 -ErrorAction SilentlyContinue | ForEach-Object {
     Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue
 }
 if (Test-Path (Join-Path $base 'captive-lab.pid')) {
@@ -18,20 +18,43 @@ if (Test-Path (Join-Path $base 'captive-lab.pid')) {
 Write-Host "Stopping Windows Time Service (w32time) to free Port 123..."
 Stop-Service w32time -Force -ErrorAction SilentlyContinue
 & net.exe stop w32time /y 2>$null | Out-Null
+
+Write-Host "Stopping Windows Mobile Hotspot / ICS service (SharedAccess) to free Port 53..."
+Stop-Service -Name "SharedAccess" -Force -ErrorAction SilentlyContinue
 Start-Sleep -Seconds 1
 
-$adapter = Get-NetAdapter -Name $adapterName -ErrorAction Stop
-Set-NetIPInterface -InterfaceIndex $adapter.ifIndex -AddressFamily IPv4 -Forwarding Disabled
-Set-NetIPInterface -InterfaceIndex $adapter.ifIndex -AddressFamily IPv6 -Forwarding Disabled
+# Detect adapter
+$adapter = Get-NetAdapter -Name $adapterName -ErrorAction SilentlyContinue
+if (-not $adapter) {
+    $adapter = Get-NetAdapter -ErrorAction SilentlyContinue | Where-Object {
+        $_.PhysicalMediaType -ne 'Native 802.11' -and
+        $_.PhysicalMediaType -ne 'BlueTooth' -and
+        $_.MediaType -ne 'Native 802.11' -and
+        $_.InterfaceDescription -notmatch 'Virtual|Hyper-V|Loopback|TAP|VPN|Host-Only|Bluetooth|Wi-Fi|Wireless|Direct|Tunnel|Tailscale' -and
+        $_.Status -ne 'Disabled'
+    } | Select-Object -First 1
+}
+
+if (-not $adapter) {
+    Write-Host "[!] ERROR: No wired or USB-to-Ethernet adapter found!" -ForegroundColor Red
+    Read-Host "Press Enter to exit..."
+    exit 1
+}
+
+$adapterName = $adapter.Name
+Write-Host "[+] Using Ethernet Adapter: $adapterName ($($adapter.InterfaceDescription))"
+
+Set-NetIPInterface -InterfaceIndex $adapter.ifIndex -AddressFamily IPv4 -Forwarding Disabled -ErrorAction SilentlyContinue
+Set-NetIPInterface -InterfaceIndex $adapter.ifIndex -AddressFamily IPv6 -Forwarding Disabled -ErrorAction SilentlyContinue
 & netsh.exe interface portproxy reset | Out-Null
 Get-NetRoute -InterfaceIndex $adapter.ifIndex -AddressFamily IPv4 -DestinationPrefix '0.0.0.0/0' -ErrorAction SilentlyContinue | Remove-NetRoute -Confirm:$false -ErrorAction SilentlyContinue
 Get-NetIPAddress -InterfaceIndex $adapter.ifIndex -AddressFamily IPv4 -ErrorAction SilentlyContinue | Where-Object { $_.IPAddress -ne '127.0.0.1' } | Remove-NetIPAddress -Confirm:$false -ErrorAction SilentlyContinue
-Set-NetIPInterface -InterfaceIndex $adapter.ifIndex -AddressFamily IPv4 -Dhcp Disabled
+Set-NetIPInterface -InterfaceIndex $adapter.ifIndex -AddressFamily IPv4 -Dhcp Disabled -ErrorAction SilentlyContinue
 
-New-NetIPAddress -InterfaceIndex $adapter.ifIndex -IPAddress $labAddress -PrefixLength $labPrefix | Out-Null
-New-NetIPAddress -InterfaceIndex $adapter.ifIndex -IPAddress '8.8.8.8' -PrefixLength 32 | Out-Null
-New-NetIPAddress -InterfaceIndex $adapter.ifIndex -IPAddress '142.250.190.46' -PrefixLength 32 | Out-Null
-New-NetIPAddress -InterfaceIndex $adapter.ifIndex -IPAddress '49.44.112.10' -PrefixLength 32 | Out-Null
+New-NetIPAddress -InterfaceIndex $adapter.ifIndex -IPAddress $labAddress -PrefixLength $labPrefix -ErrorAction SilentlyContinue | Out-Null
+New-NetIPAddress -InterfaceIndex $adapter.ifIndex -IPAddress '8.8.8.8' -PrefixLength 32 -ErrorAction SilentlyContinue | Out-Null
+New-NetIPAddress -InterfaceIndex $adapter.ifIndex -IPAddress '142.250.190.46' -PrefixLength 32 -ErrorAction SilentlyContinue | Out-Null
+New-NetIPAddress -InterfaceIndex $adapter.ifIndex -IPAddress '49.44.112.10' -PrefixLength 32 -ErrorAction SilentlyContinue | Out-Null
 Start-Sleep -Seconds 2
 
 Get-NetFirewallRule -DisplayName 'LocalLab-Allow-Inbound*' -ErrorAction SilentlyContinue | Remove-NetFirewallRule
