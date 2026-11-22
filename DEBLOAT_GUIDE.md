@@ -112,9 +112,9 @@ You do **not** need a PC to freeze or unfreeze `com.jio.store` or bloatware ever
    - Whenever you want to freeze or unfreeze apps, simply open Hail on your TV and press the remote Select button!
    - *Note on `com.jio.tr069client`:* Keep `com.jio.tr069client` enabled on JHS series so ADB port 5555 remains active after reboot without having to re-pair Shizuku wirelessly.
 
-### C. Install & Configure Custom Launcher (Projectivy or Monet)
+### C. Install & Configure Custom Launcher (Projectivy, Monet, or TV Home)
 
-Both **Projectivy Launcher** and **Monet Launcher** are included prebuilt in [`apks/`](apks/):
+**Projectivy Launcher**, **Monet Launcher**, and **TV Home Launcher** are included prebuilt in [`apks/`](apks/):
 
 1. **Option 1: Projectivy Launcher (Recommended)**
    - Premium Leanback smart TV UI with custom category rows, "Watch Next" channels, custom wallpapers, and input switching.
@@ -139,17 +139,42 @@ Both **Projectivy Launcher** and **Monet Launcher** are included prebuilt in [`a
    adb shell am start -n com.klevico.monet/.HomeActivity
    ```
 
+3. **Option 3: TV Home Launcher (Fast Lightweight Leanback with HomeKeeper)**
+   - Fast, clean open-source Android TV launcher featuring built-in `HomeKeeper` accessibility service to permanently lock the remote's Home button.
+   ```bash
+   adb install -r apks/TVHome.apk
+   adb shell cmd package set-home-activity com.atroc.tvhome/.MainActivity
+   adb shell pm grant com.atroc.tvhome android.permission.WRITE_SECURE_SETTINGS
+   adb shell appops set com.atroc.tvhome SYSTEM_ALERT_WINDOW allow
+   adb shell settings put secure enabled_accessibility_services com.atroc.tvhome/.HomeKeeper
+   adb shell settings put secure accessibility_enabled 1
+   adb shell am start -n com.atroc.tvhome/.MainActivity
+   ```
+
 > [!CRITICAL]
-> **Persistent Launcher Fix (Jio PackageManagerService Quirk):**  
-> On Jio STB firmware, `pm disable-user --user 0 com.iwedia.ui.rjio.launcher.reliance` **does NOT survive a cold reboot!**  
-> Jio's customized `PackageManagerService` contains a flag named `Relax SCAN_REQUIRE_KNOWN` and an SSO service that automatically re-enables disabled apps on boot.  
+> **Why Jio Launcher Keeps Coming Back & How to Permanently Kill It:**  
+> On Jio STB firmware, three independent mechanisms cause the stock Jio launcher to resurrect itself:
+> 1. **`pm disable` fails across reboots:** Jio's custom `PackageManagerService` contains a flag named `Relax SCAN_REQUIRE_KNOWN` that silently re-enables disabled pre-installed apps on cold boot. You must run `pm uninstall --user 0 <pkg>` (or `pm suspend --user 0 <pkg>`).
+> 2. **Model differences:** JHS boxes use `com.iwedia.ui.rjio.launcher.reliance`, while JMS/Kaon/Skyworth boxes use `com.jio.media.stblauncher` or `com.jio.jiolauncher`. Deactivating only the iWedia package leaves the stock launcher untouched on JMS models!
+> 3. **Background Watchdogs:** Daemons like `com.jio.appoptimizer`, `com.jio.stbadservice`, and `com.jio.jiobackgroundscheduler` wake up on boot or periodic alarms and reinstall the stock launcher via `cmd package install-existing`. Freezing these watchdogs stops the resurrection completely!
 >  
-> To permanently remove the iWedia launcher across cold reboots:
+> To permanently remove all stock launchers across cold reboots:
 > ```bash
-> pm uninstall --user 0 com.iwedia.ui.rjio.launcher.reliance
+> # Suspend, disable, and uninstall across all Jio models
+> for pkg in com.iwedia.ui.rjio.launcher.reliance com.jio.media.stblauncher com.jio.jiolauncher com.google.android.tvlauncher; do
+>   pm suspend --user 0 $pkg 2>/dev/null
+>   pm disable-user --user 0 $pkg 2>/dev/null
+>   pm uninstall --user 0 $pkg 2>/dev/null
+>   am force-stop $pkg 2>/dev/null
+> done
+> # Freeze watchdogs
+> for w in com.jio.stbadservice com.jio.appoptimizer com.jio.jiobackgroundscheduler com.jio.screensaver; do
+>   pm suspend --user 0 $w 2>/dev/null
+>   pm disable-user --user 0 $w 2>/dev/null
+>   am force-stop $w 2>/dev/null
+> done
 > ```
-> This removes the launcher registration for user 0 while leaving the APK safely in the read-only `/system` partition. Jio's bootloader does NOT reinstall uninstalled user packages.  
-> *(To restore it anytime: `cmd package install-existing com.iwedia.ui.rjio.launcher.reliance`)*
+> *(To restore it anytime: `cmd package install-existing <pkg>`)*
 
 Kill the stock launcher process:
 ```bash

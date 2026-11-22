@@ -171,7 +171,7 @@ Double-click **`1CLICK_POST_ADB_SETUP.bat`** (or run `python post_adb_setup.py`)
 | 🛍️ **`AptoideTV.apk`** | **Official Leanback Android TV App Store:** Serves remote-friendly, 10-ft TV APKs exclusively. Replaces phone/tablet app stores that crash or fail D-Pad navigation. |
 | 🌐 **`TVBro.apk`** | **Open-Source TV Web Browser & APK Downloader:** Full remote-control navigation, built-in ad blocker, and direct APK download manager. |
 | 🔀 **`stn_bridge_atv.apk`** | **SmartTube Intent Bridge:** Intercepts official YouTube Leanback intents and routes them directly to SmartTube for ad-free playback. |
-| 🎮 **`TVHome.apk` (CleanYourTV)** | Dedicated remote hotkey mapper: remap Netflix, Hotstar, Prime, and physical Mic/Voice buttons to launch custom apps. |
+| 🏠 **`TVHome.apk` (TV Home)** | Fast, clean open-source Leanback TV launcher featuring built-in `HomeKeeper` accessibility lock to permanently prevent stock Jio launcher resurrection. |
 | ⚙️ **`AndroidSettingsShortcut.apk`** | Direct launcher for native Android TV Settings (`com.android.tv.settings`) — used for Bluetooth audio pairing, Wi-Fi configuration, and Developer Options. |
 | 📺 **`mediashell.apk`** | Production Google Cast receiver update enabling genuine Chromecast built-in streaming. |
 | 🎙️ **`micbridge.apk`** | **Sideloaded Voice Input Bridge (No Root):** Bridges Jio BLE Remote mic to sideloaded apps (SmartTube, Stremio, Kodi, TV Bro). Captures speech via Jio cloud ASR and auto-injects transcribed text directly into search fields. |

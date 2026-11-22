@@ -199,6 +199,27 @@ def step_debloat():
     run_adb_shell("pm enable com.jio.store")
     print("[+] JioStore preserved/active (Required for official non-GMS Zee5, SonyLIV, SunNXT).")
 
+def enable_accessibility_service(service_name):
+    """Safely appends an accessibility service without overwriting or disabling existing services."""
+    cur_a11y = run_adb_shell("settings get secure enabled_accessibility_services").strip()
+    services = [s.strip() for s in cur_a11y.split(":") if s.strip() and s.strip() != "null"] if cur_a11y else []
+    if service_name not in services:
+        services.append(service_name)
+    new_a11y = ":".join(services)
+    run_adb_shell("settings put secure accessibility_enabled 0")
+    run_adb_shell(f'settings put secure enabled_accessibility_services "{new_a11y}"')
+    run_adb_shell("settings put secure accessibility_enabled 1")
+    return new_a11y
+
+def disable_accessibility_service(service_name):
+    """Safely removes an accessibility service from enabled_accessibility_services."""
+    cur_a11y = run_adb_shell("settings get secure enabled_accessibility_services").strip()
+    services = [s.strip() for s in cur_a11y.split(":") if s.strip() and s.strip() != "null"] if cur_a11y else []
+    if service_name in services:
+        services.remove(service_name)
+    new_a11y = ":".join(services) if services else "null"
+    run_adb_shell(f'settings put secure enabled_accessibility_services "{new_a11y}"')
+
 def step_install_apks():
     print("\n" + "=" * 60)
     print("  STEP 2: Installing Essential Bundled Utilities")
@@ -214,6 +235,7 @@ def step_install_apks():
     apk_files = [
         ("Projectivy Launcher (Premium Leanback UI)", "ProjectivyLauncher.apk"),
         ("Monet Launcher (Clean Ad-free UI)", "monet-launcher.apk"),
+        ("TV Home (Fast Leanback TV Launcher with HomeKeeper)", "TVHome.apk"),
         ("Key Mapper (Open-Source Button Remapper)", "KeyMapper.apk"),
         ("OpenShelf (FOSS Android TV App Store)", "OpenShelf-0.7.0.apk"),
         ("Shevery (On-device Shizuku shell)", "shevery-release.apk"),
@@ -223,7 +245,6 @@ def step_install_apks():
         ("SmartTube ATV Bridge (YouTube Remote Bridge)", "stn_bridge_atv.apk"),
         ("Android TV Settings Shortcut", "AndroidSettingsShortcut.apk"),
         ("Jio Settings Shortcut", "JioSettingsShortcut.apk"),
-        ("TVHome (CleanYourTV Hotkeys)", "TVHome.apk"),
         ("MicBridge (Voice Input for Sideloaded Apps)", "micbridge.apk"),
     ]
 
@@ -246,15 +267,13 @@ def step_install_apks():
     run_adb_shell("pm grant io.github.sds100.keymapper android.permission.WRITE_SECURE_SETTINGS")
     run_adb_shell("pm grant com.spocky.projengmenu android.permission.WRITE_SECURE_SETTINGS")
     run_adb_shell("pm grant com.klevico.monet android.permission.WRITE_SECURE_SETTINGS")
+    run_adb_shell("pm grant com.atroc.tvhome android.permission.WRITE_SECURE_SETTINGS")
+    run_adb_shell("appops set com.atroc.tvhome SYSTEM_ALERT_WINDOW allow")
 
-    # Enable MicBridge accessibility service if installed
-    cur_a11y = run_adb_shell("settings get secure enabled_accessibility_services").strip()
-    mb_svc = "dev.dedsec.micbridge/.MicA11yService"
-    if mb_svc not in cur_a11y:
-        new_a11y = mb_svc if not cur_a11y or cur_a11y == "null" else f"{cur_a11y}:{mb_svc}"
-        run_adb_shell("settings put secure accessibility_enabled 0")
-        run_adb_shell(f'settings put secure enabled_accessibility_services "{new_a11y}"')
-        run_adb_shell("settings put secure accessibility_enabled 1")
+    # Enable MicBridge accessibility service safely if installed
+    mb_check = run_adb_shell("pm list packages dev.dedsec.micbridge")
+    if "dev.dedsec.micbridge" in mb_check:
+        enable_accessibility_service("dev.dedsec.micbridge/.MicA11yService")
 
 def step_configure_launcher():
     print("\n" + "=" * 60)
@@ -264,71 +283,116 @@ def step_configure_launcher():
     print("\n  Select your preferred default launcher:")
     print("    [1] Projectivy Launcher (Recommended - Premium Leanback UI, Channels & Up Next)")
     print("    [2] Monet Launcher (Lightweight Minimalist Material UI)")
-    print("    [3] Keep Current Launcher (Skip)")
-    choice = input("  Enter choice [1, 2, or 3, default 1]: ").strip()
+    print("    [3] TV Home Launcher (Fast Lightweight Leanback TV UI with HomeKeeper)")
+    print("    [4] Keep Current Launcher (Skip)")
+    choice = input("  Enter choice [1, 2, 3, or 4, default 1]: ").strip()
 
-    if choice == "3":
+    if choice == "4":
         print("  [*] Keeping current launcher configuration.")
         return "com.spocky.projengmenu"
 
-    print("  [*] Applying persistent PMS bypass for stock launcher...")
-    # Jio PMS Relax SCAN_REQUIRE_KNOWN re-enables disabled apps on reboot.
-    # Uninstalling for user 0 permanently removes it while keeping APK in /system!
-    run_adb_shell("pm uninstall --user 0 com.iwedia.ui.rjio.launcher.reliance")
+    print("  [*] Applying persistent PMS bypass across all stock Jio launchers...")
+    # List of all known stock Jio launchers across JHSD, JMSD, JHSC, JMSC, JMSB, AirFiber
+    stock_launchers = [
+        "com.iwedia.ui.rjio.launcher.reliance",
+        "com.jio.media.stblauncher",
+        "com.jio.jiolauncher",
+        "com.google.android.tvlauncher",
+        "com.jio.media.ondemand",
+    ]
+    for s_pkg in stock_launchers:
+        pkg_check = run_adb_shell(f"pm list packages {s_pkg}")
+        if s_pkg in pkg_check:
+            print(f"  [-] Deactivating stock launcher: {s_pkg}...")
+            # 1. Suspend app (persists across reboots)
+            run_adb_shell(f"pm suspend --user 0 {s_pkg}")
+            # 2. Disable app for user 0
+            run_adb_shell(f"pm disable-user --user 0 {s_pkg}")
+            # 3. Uninstall for user 0 (bypasses Jio's PMS Relax SCAN_REQUIRE_KNOWN re-activation)
+            run_adb_shell(f"pm uninstall --user 0 {s_pkg}")
+            # 4. Clear data & stop process
+            run_adb_shell(f"pm clear {s_pkg}")
+            run_adb_shell(f"am force-stop {s_pkg}")
+
+    # Also freeze Jio background watchdogs that attempt to restore the stock launcher
+    watchdog_pkgs = [
+        "com.jio.stbadservice",
+        "com.jio.appoptimizer",
+        "com.jio.jiobackgroundscheduler",
+        "com.jio.screensaver",
+        "com.jio.bioscopecontentservice"
+    ]
+    for w_pkg in watchdog_pkgs:
+        w_check = run_adb_shell(f"pm list packages {w_pkg}")
+        if w_pkg in w_check:
+            run_adb_shell(f"pm suspend --user 0 {w_pkg}")
+            run_adb_shell(f"pm disable-user --user 0 {w_pkg}")
+            run_adb_shell(f"am force-stop {w_pkg}")
 
     if choice == "2":
         launcher_pkg = "com.klevico.monet"
         print("  [*] Setting Monet Launcher as default Home activity...")
         run_adb_shell("cmd package set-home-activity com.klevico.monet/.HomeActivity")
         run_adb_shell("pm grant com.klevico.monet android.permission.WRITE_SECURE_SETTINGS")
-        run_adb_shell("settings put secure enabled_accessibility_services com.klevico.monet/.LauncherAccessibilityService")
-        run_adb_shell("settings put secure accessibility_enabled 1")
+        enable_accessibility_service("com.klevico.monet/.LauncherAccessibilityService")
         run_adb_shell("am start -n com.klevico.monet/.HomeActivity")
         print("[+] Monet Launcher activated and running on TV screen!")
+    elif choice == "3":
+        launcher_pkg = "com.atroc.tvhome"
+        print("  [*] Setting TV Home Launcher as default Home activity...")
+        run_adb_shell("cmd package set-home-activity com.atroc.tvhome/.MainActivity")
+        run_adb_shell("pm grant com.atroc.tvhome android.permission.WRITE_SECURE_SETTINGS")
+        run_adb_shell("appops set com.atroc.tvhome SYSTEM_ALERT_WINDOW allow")
+        enable_accessibility_service("com.atroc.tvhome/.HomeKeeper")
+        run_adb_shell("am start -n com.atroc.tvhome/.MainActivity")
+        print("[+] TV Home Launcher activated and running on TV screen!")
     else:
         launcher_pkg = "com.spocky.projengmenu"
         print("  [*] Setting Projectivy Launcher as default Home activity...")
         run_adb_shell("cmd package set-home-activity com.spocky.projengmenu/.ui.home.MainActivity")
         run_adb_shell("pm grant com.spocky.projengmenu android.permission.WRITE_SECURE_SETTINGS")
         run_adb_shell("appops set com.spocky.projengmenu SYSTEM_ALERT_WINDOW allow")
-        run_adb_shell("settings put secure enabled_accessibility_services com.spocky.projengmenu/.services.ProjectivyAccessibilityService")
-        run_adb_shell("settings put secure accessibility_enabled 1")
+        enable_accessibility_service("com.spocky.projengmenu/.services.ProjectivyAccessibilityService")
         run_adb_shell("am start -n com.spocky.projengmenu/.ui.home.MainActivity")
         print("[+] Projectivy Launcher activated and running on TV screen!")
 
-    run_adb_shell("am force-stop com.iwedia.ui.rjio.launcher.reliance")
     return launcher_pkg
 
 def step_configure_hotkeys(launcher_pkg="com.spocky.projengmenu"):
     print("\n" + "=" * 60)
-    print("  STEP 4: Configuring CleanYourTV Remote Hotkeys")
+    print("  STEP 4: Configuring Remote Hotkeys")
     print("=" * 60)
 
-    config_data = {
-        "keys": [
-            {"keyCode": 137, "action": "launch_app", "packageName": launcher_pkg},
-            {"keyCode": 138, "action": "launch_app", "packageName": "cm.aptoidetv.pt"},
-            {"keyCode": 134, "action": "launch_app", "packageName": "com.user.androidsettings"},
-            {"keyCode": 141, "action": "launch_app", "packageName": "com.jio.media.jiotvplus"},
-            {"keyCode": 142, "action": "launch_app", "packageName": "com.hamondev.shevery"}
-        ]
-    }
+    # Check if CleanYourTV (com.gathin.tvhome) is installed on the box
+    installed = run_adb_shell("pm list packages com.gathin.tvhome")
+    if "com.gathin.tvhome" in installed:
+        config_data = {
+            "keys": [
+                {"keyCode": 137, "action": "launch_app", "packageName": launcher_pkg},
+                {"keyCode": 138, "action": "launch_app", "packageName": "cm.aptoidetv.pt"},
+                {"keyCode": 134, "action": "launch_app", "packageName": "com.user.androidsettings"},
+                {"keyCode": 141, "action": "launch_app", "packageName": "com.jio.media.jiotvplus"},
+                {"keyCode": 142, "action": "launch_app", "packageName": "com.hamondev.shevery"}
+            ]
+        }
 
-    tmp_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config_tmp.json")
-    with open(tmp_path, "w", encoding="utf-8") as f:
-        json.dump(config_data, f, indent=2)
+        tmp_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config_tmp.json")
+        with open(tmp_path, "w", encoding="utf-8") as f:
+            json.dump(config_data, f, indent=2)
 
-    remote_dir = "/sdcard/Android/data/com.gathin.tvhome/files"
-    run_adb_shell(f"mkdir -p {remote_dir}")
-    run_adb(["push", tmp_path, f"{remote_dir}/config.json"])
-    if os.path.exists(tmp_path):
-        os.remove(tmp_path)
+        remote_dir = "/sdcard/Android/data/com.gathin.tvhome/files"
+        run_adb_shell(f"mkdir -p {remote_dir}")
+        run_adb(["push", tmp_path, f"{remote_dir}/config.json"])
+        if os.path.exists(tmp_path):
+            os.remove(tmp_path)
 
-    # Enable TVHome accessibility service
-    run_adb_shell("settings put secure enabled_accessibility_services com.gathin.tvhome/.InputKeyService")
-    run_adb_shell("am force-stop com.gathin.tvhome")
-    print("[+] CleanYourTV hotkeys mapped (Netflix -> Monet, Hotstar -> Aptoide TV, etc.)")
-    print("[+] Raw Mic key (231) preserved for native Bluetooth stack!")
+        # Enable TVHome accessibility service safely without overwriting other services
+        enable_accessibility_service("com.gathin.tvhome/.InputKeyService")
+        run_adb_shell("am force-stop com.gathin.tvhome")
+        print("[+] CleanYourTV hotkeys mapped (Netflix -> Launcher, Hotstar -> Aptoide TV, etc.)")
+    else:
+        print(f"[*] CleanYourTV key remapper not detected. Remote Home key is natively bound to {launcher_pkg}.")
+    print("[+] Raw Mic key (231) preserved for native Bluetooth voice stack!")
 
 def step_system_tweaks():
     print("\n" + "=" * 60)
@@ -624,17 +688,7 @@ def step_voice_troubleshoot():
             input("\n  Press Enter to continue...")
             return
         run_adb(f'install -r -g "{apk_path}"')
-        cur_a11y = run_adb_shell("settings get secure enabled_accessibility_services").strip()
-        mb_svc = "dev.dedsec.micbridge/.MicA11yService"
-        if mb_svc in cur_a11y:
-            new_a11y = cur_a11y
-        elif not cur_a11y or cur_a11y == "null":
-            new_a11y = mb_svc
-        else:
-            new_a11y = f"{cur_a11y}:{mb_svc}"
-        run_adb_shell("settings put secure accessibility_enabled 0")
-        run_adb_shell(f'settings put secure enabled_accessibility_services "{new_a11y}"')
-        run_adb_shell("settings put secure accessibility_enabled 1")
+        enable_accessibility_service("dev.dedsec.micbridge/.MicA11yService")
         print("\n  [+] MicBridge installed and Accessibility Service enabled!")
         print("  How to use:")
         print("  1. Open any sideloaded app (SmartTube, Stremio, Kodi, TV Bro, etc.).")
@@ -658,11 +712,21 @@ def step_revert_stock():
     print("=" * 60)
 
     print("  [*] Re-installing stock Jio launcher for user 0...")
-    run_adb_shell("cmd package install-existing com.iwedia.ui.rjio.launcher.reliance")
-    run_adb_shell("cmd package set-home-activity com.iwedia.ui.rjio.launcher.reliance/.MainActivity")
+    for s_pkg in ["com.iwedia.ui.rjio.launcher.reliance", "com.jio.media.stblauncher", "com.jio.jiolauncher"]:
+        run_adb_shell(f"cmd package install-existing {s_pkg}")
+        run_adb_shell(f"pm unsuspend --user 0 {s_pkg}")
+        run_adb_shell(f"pm enable {s_pkg}")
+
+    # Set default home to stock
+    stock_home = run_adb_shell("cmd package resolve-activity -a android.intent.action.MAIN -c android.intent.category.HOME")
+    for s_pkg in ["com.iwedia.ui.rjio.launcher.reliance", "com.jio.media.stblauncher", "com.jio.jiolauncher"]:
+        if s_pkg in stock_home:
+            run_adb_shell(f"cmd package set-home-activity {s_pkg}/.MainActivity")
+            break
 
     print("  [*] Re-enabling Jio services...")
     for pkg in SAFE_DEBLOAT_PACKAGES:
+        run_adb_shell(f"pm unsuspend --user 0 {pkg}")
         run_adb_shell(f"pm enable {pkg}")
 
     run_adb_shell("cmd uimode night no")
