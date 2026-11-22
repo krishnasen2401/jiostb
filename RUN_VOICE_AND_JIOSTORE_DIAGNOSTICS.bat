@@ -4,7 +4,7 @@ title Jio STB - Voice & JioStore Diagnostics Collector
 color 0B
 
 echo =====================================================================
-echo          JIO STB VOICE & JIOSTORE DIAGNOSTICS COLLECTOR
+echo          JIO STB VOICE AND JIOSTORE DIAGNOSTICS COLLECTOR
 echo =====================================================================
 echo.
 
@@ -41,7 +41,7 @@ echo [*] Saving output to: %OUTFILE%
 
 (
 echo =====================================================================
-echo            JIO STB DIAGNOSTIC REPORT: VOICE & JIOSTORE
+echo            JIO STB DIAGNOSTIC REPORT: VOICE AND JIOSTORE
 echo            Generated: %DATE% %TIME%
 echo =====================================================================
 echo.
@@ -78,7 +78,7 @@ echo voice_recognition_service:
 "%ADB%" %DEVICE_TARGET% shell settings get secure voice_recognition_service
 echo.
 
-echo === 1.5 JIO VOICE ASSISTANT PERMISSION & DUMPSYS ===
+echo === 1.5 JIO VOICE ASSISTANT PERMISSION AND DUMPSYS ===
 echo Checking RECORD_AUDIO permission:
 "%ADB%" %DEVICE_TARGET% shell dumpsys package com.android.app.jio.voiceassist | findstr /i "android.permission.RECORD_AUDIO"
 echo.
@@ -89,7 +89,7 @@ echo Checking /sdcard/Android/data/com.gathin.tvhome/files/config.json:
 echo.
 
 echo ---------------------------------------------------------------------
-echo [PART 2: JIOSTORE & OTT SUBSCRIPTION DIAGNOSTICS]
+echo [PART 2: JIOSTORE AND OTT SUBSCRIPTION DIAGNOSTICS]
 echo ---------------------------------------------------------------------
 echo.
 echo === 2.1 JIOSTORE PACKAGE STATE ===
@@ -101,11 +101,11 @@ echo Check if com.jio.store is disabled:
 "%ADB%" %DEVICE_TARGET% shell pm list packages -d com.jio.store
 echo.
 
-echo === 2.2 JIOSTORE PROCESS & SERVICE STATUS ===
+echo === 2.2 JIOSTORE PROCESS AND SERVICE STATUS ===
 "%ADB%" %DEVICE_TARGET% shell ps | findstr /i "jio.store"
 echo.
 
-echo === 2.3 JIO SSO & ACCOUNT SERVICES (REQUIRED FOR OTT / JIOTV+) ===
+echo === 2.3 JIO SSO AND ACCOUNT SERVICES (REQUIRED FOR OTT / JIOTV+) ===
 echo SSO Service (com.media.jio.sso.stb):
 "%ADB%" %DEVICE_TARGET% shell pm list packages -e com.media.jio.sso.stb
 echo Account Service (com.jio.media.stb.account):

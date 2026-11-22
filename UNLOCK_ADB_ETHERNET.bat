@@ -18,7 +18,7 @@ echo ==========================================================
 echo.
 echo Select your Jio STB Unlock Mode:
 echo   [1] Universal Auto-Select: All Models (JHSD, JHSC, JMSC, JMSD, JMSB, AirFiber) [DEFAULT]
-echo   [2] Original Zero-401 Lab: Verified Initial Release (Zero 401 Challenge / Recommended for JMSD200 & failing boxes)
+echo   [2] Original Zero-401 Lab: Verified Initial Release (Zero 401 Challenge / Recommended for JMSD200 and failing boxes)
 echo   [3] Legacy / Custom: Fallback RILROOTCA Chain
 echo.
 set MODEL_CHOICE=1

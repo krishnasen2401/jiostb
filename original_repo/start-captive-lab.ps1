@@ -16,7 +16,8 @@ if (Test-Path (Join-Path $base 'captive-lab.pid')) {
 }
 
 Write-Host "Stopping Windows Time Service (w32time) to free Port 123..."
-Stop-Service w32time -ErrorAction SilentlyContinue
+Stop-Service w32time -Force -ErrorAction SilentlyContinue
+& net.exe stop w32time /y 2>$null | Out-Null
 Start-Sleep -Seconds 1
 
 $adapter = Get-NetAdapter -Name $adapterName -ErrorAction Stop
