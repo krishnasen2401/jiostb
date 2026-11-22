@@ -16,14 +16,30 @@ echo [*] If this tool helps you, please star our GitHub repo:
 echo     https://github.com/krishnasen2401/jiostb
 echo ==========================================================
 echo.
-echo Select your Jio STB Model Family:
+echo Select your Jio STB Unlock Mode:
 echo   [1] Universal Auto-Select: All Models (JHSD, JHSC, JMSC, JMSD, JMSB, AirFiber) [DEFAULT]
-echo   [2] Legacy / Custom: Fallback RILROOTCA Chain
+echo   [2] Original Zero-401 Lab: Verified Initial Release (Zero 401 Challenge / Launches original_repo)
+echo   [3] Legacy / Custom: Fallback RILROOTCA Chain
 echo.
 set MODEL_CHOICE=1
-set /p MODEL_CHOICE="Enter choice [1 or 2, default 1]: "
+set /p MODEL_CHOICE="Enter choice [1, 2, or 3, default 1]: "
+
+if "%MODEL_CHOICE%"=="2" (
+    echo.
+    echo ==========================================================
+    echo [+] Launching Original Zero-401 Lab from original_repo...
+    echo     - Direct 200 OK InformResponse (No 401 Digest challenges)
+    echo     - 100%% Offline Standalone (No upstream relay dependencies)
+    echo     - Supports all models: JHSD200, JHSC200, JMSD200, JMSC200
+    echo ==========================================================
+    cd /d "%~dp0original_repo"
+    powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0original_repo\start-captive-lab.ps1"
+    pause
+    exit /b
+)
+
 set STB_MODEL=universal
-if "%MODEL_CHOICE%"=="2" set STB_MODEL=legacy
+if "%MODEL_CHOICE%"=="3" set STB_MODEL=legacy
 
 if "%STB_MODEL%"=="universal" (
     echo [+] Configured for Universal Auto-Select - Verified eMudhra TLS chain (Comodo AAA CA)

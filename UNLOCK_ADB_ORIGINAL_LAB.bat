@@ -5,14 +5,14 @@ if %errorLevel% neq 0 (
     powershell -NoProfile -Command "Start-Process cmd.exe -ArgumentList '/k \"\"%~f0\"\"' -Verb RunAs"
     exit /b
 )
-cd /d "%~dp0original_working_lab"
+cd /d "%~dp0original_repo"
 echo ==========================================================
 echo Starting Original Verified Jio STB Captive Lab (Zero-401)
 echo ==========================================================
-echo [*] Running original verified release scripts from Telegram
+echo [*] Running original initial release scripts from original_repo
 echo     - Zero 401 Digest challenges (Direct 200 OK InformResponse)
 echo     - 100%% Offline Standalone (No upstream relay dependencies)
 echo     - Supports all models: JHSD200, JHSC200, JMSD200, JMSC200
 echo ==========================================================
-powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0original_working_lab\start-captive-lab.ps1"
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0original_repo\start-captive-lab.ps1"
 pause

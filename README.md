@@ -24,7 +24,15 @@ flowchart LR
     B --> C["3. Run Post-Setup<br/>(Debloat & Custom TV)"]
 ```
 
-1. **Run the Unlocker:** Double-click **`UNLOCK_ADB_ETHERNET.bat`** (or **`UNLOCK_ADB_ORIGINAL_LAB.bat`** for the original verified zero-401 standalone lab).
+> [!TIP]
+> **🌟 STUCK ON 401 DIGEST OR USING JMSD200? USE THE ORIGINAL VERIFIED LAB:**  
+> If your STB gets stuck in a 401 authentication loop or fails to unlock, double-click **[`UNLOCK_ADB_ORIGINAL_LAB.bat`](UNLOCK_ADB_ORIGINAL_LAB.bat)** (or choose **Option 2** inside `UNLOCK_ADB_ETHERNET.bat`).  
+> This launches the untouched, standalone initial release from [`original_repo/`](original_repo/):
+> * **Zero 401 Digest Challenges:** Instantly replies `200 OK InformResponse` without challenging the STB.
+> * **100% Offline Standalone:** Zero upstream relay dependencies or WAN requirements.
+> * **Universal Compatibility:** Unlocks all hardware (`JHSD200`, `JHSC200`, `JMSD200A`, `JMSC200A`, `JMSB200A`) in 2 seconds on cold boot!
+
+1. **Run the Unlocker:** Double-click **`UNLOCK_ADB_ETHERNET.bat`** (or **`UNLOCK_ADB_ORIGINAL_LAB.bat`**).
 2. **Reboot the Box:** Unplug the **12V DC power cord** from the back of the STB, wait 5 seconds, and plug it back in.
 3. **Customize & Debloat:** Once the console prints the success banner, double-click **`1CLICK_POST_ADB_SETUP.bat`** to install Projectivy Launcher, Aptoide TV, TV Bro, CleanYourTV remote hotkeys, and debloat stock Jio ads.
 
@@ -32,17 +40,18 @@ flowchart LR
 
 ## ⚠️ Pre-Flight Checklist (Read Before You Begin)
 
-To ensure a smooth, error-free unlock on your first try, follow these 3 critical rules:
+To ensure a smooth, error-free unlock on your first try, follow these critical rules:
 
 > [!IMPORTANT]
 > 1. **Temporarily Disable Windows Firewall & Antivirus:**  
 >    Windows Defender Firewall or third-party suites (**Quick Heal**, **McAfee**, **Norton**) will silently drop inbound packets on ports `53` (DNS) and `8443`/`9443` (TR-069). **Turn them OFF for 15 minutes** while unlocking.
 > 2. **Always Cold Power-Cycle (12V DC Plug):**  
 >    **Do NOT use the remote power button!** Jio STB remote power only puts the device into a low-power standby state (`suspend-to-RAM`) where TR-069 does **not** re-initialize. You **must pull the physical 12V DC adapter barrel plug** from the back of the box, wait 5 seconds, and plug it back in.
-> 3. **Select Universal Auto-Select (Option 1):**  
->    When the script prompts for model family:
->    * Press `1` for **Universal Auto-Select [DEFAULT]** (covers all hardware: `JHSD200`, `JHSC200`, `JMSC200A`, `JMSD200A`, `JMSB200A`, AirFiber) $\to$ loads verified `forged_chain.pem` (eMudhra + Comodo AAA CA, pre-trusted by all Android builds).
->    * Press `2` for **Legacy / Custom fallback** $\to$ loads `acs_chain.pem`.
+> 3. **Select Unlock Mode:**  
+>    When the script prompts for unlock mode:
+>    * Press `1` for **Universal Auto-Select [DEFAULT]** (covers all hardware: `JHSD200`, `JHSC200`, `JMSC200A`, `JMSD200A`, `JMSB200A`, AirFiber).
+>    * Press `2` for **Original Zero-401 Lab [RECOMMENDED FOR JMSD200 & FAILING BOXES]** $\to$ runs the untouched standalone initial release from `original_repo/`.
+>    * Press `3` for **Legacy / Custom fallback** $\to$ loads `acs_chain.pem`.
 > 4. **Stuck in a Loop or TLS Error? Perform a Quick Factory Reset:**  
 >    If your STB repeatedly rejects TLS (`SSLV3_ALERT_CERTIFICATE_UNKNOWN`) or gets stuck in a captive portal polling loop (`/generate_204` or `/cloud_dvr/...`), the internal `com.jio.tr069client` daemon has entered an **exponential backoff state** in `/data` from an earlier interrupted session.  
 >    **Fix:** Perform a **Factory Reset** on the STB (**Settings** $\to$ **Device Preferences** $\to$ **Reset** $\to$ **Erase Everything**, or hold the bottom pinhole recovery button while powering on). During the fresh Initial Setup Wizard, connect to the lab. In this clean state, the STB immediately prioritizes TR-069 provisioning and unlocks on the very first boot!
@@ -55,6 +64,7 @@ Detailed research, full firmware tables, and advanced modification guides are sp
 
 | Document / Guide | Description |
 | :--- | :--- |
+| 🌟 **[`original_repo/`](original_repo/)** | **Original Verified Release Lab (Zero-401):** Untouched standalone captive lab that directly accepts Informs without 401 Digest challenges, guaranteed to unlock stubborn boxes and JMSD200. |
 | 🛠️ **[`DEBLOAT_GUIDE.md`](DEBLOAT_GUIDE.md)** | **Post-ADB Debloating & Customization Guide:** Permanent removal of iWedia launcher (bypassing Jio's `Relax SCAN_REQUIRE_KNOWN` reboot reset via `pm uninstall --user 0`), Monet/Projectivy setup, forced Dark Mode, remote hotkey remapping (`TVHome.apk`), **bundled OTT subscription preservation rules**, and **JioTV+ v6 upgrade guide with any-ISP mobile OTP login**. |
 | 📦 **[`FIRMWARE_CATALOG.md`](FIRMWARE_CATALOG.md)** | **45+ Verified Official Firmware Packages & Direct Download Links:** Complete archive of Akamai URLs covering Franklin (`JHSD200`, `JHSC200v2`, `JHSC200v3`), Legacy SDMC (`DV8545-Cn2`), 4K OTT STBs (`MSTB` A/B updates), Hotel builds (`*-H`), Jio Smart Displays (`curie`), and Media Hubs (`MCM3000`). |
 | 🤖 **[`AGENTS.md`](AGENTS.md)** | **Autonomous AI Agent Runbook:** Machine-actionable protocols for AI agents (Claude Code, GPT, Antigravity) to autonomously detect hardware revisions, run 1-click ADB unlocks, and execute debloating. |
