@@ -27,13 +27,12 @@ set /p MODEL_CHOICE="Enter choice [1, 2, or 3, default 1]: "
 if "%MODEL_CHOICE%"=="2" (
     echo.
     echo ==========================================================
-    echo [+] Launching Original Zero-401 Lab from original_repo...
+    echo [+] Launching Original Zero-401 Lab over Wi-Fi Hotspot...
     echo     - Direct 200 OK InformResponse (No 401 Digest challenges)
     echo     - 100%% Offline Standalone (No upstream relay dependencies)
     echo     - Supports all models: JHSD200, JHSC200, JMSD200, JMSC200
     echo ==========================================================
-    cd /d "%~dp0original_repo"
-    powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0original_repo\start-captive-lab.ps1"
+    powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\start-adb-wifi.ps1" -AcsScript "mock_acs.py" -Model "universal"
     pause
     exit /b
 )

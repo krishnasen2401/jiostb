@@ -422,12 +422,18 @@ or the microphone simply does not respond. This happens because:
 2. Jio's internal `VoiceRecognitionService` enforces strict package-allowlist restrictions that reject any app not signed by Jio or Google.
 3. The remote sends raw compressed voice packets over a proprietary Bluetooth Low Energy (BLE) GATT audio stream (`ServiceBleVoiceRead` on UUID `8980f798-0614-11ea-8d71-362b9e155667`), which standard Android audio recording HALs cannot read directly without root.
 
-**The Solution — [Lucifer7535/micbridge](https://github.com/Lucifer7535/micbridge):**
+**The Solution — [Lucifer7535/micbridge](https://github.com/Lucifer7535/micbridge) (v1.2 Patched):**
 Instead of fighting the hardwired key or requiring root access, **MicBridge** uses Android's Accessibility framework (`dev.dedsec.micbridge/.MicA11yService`) to bridge the gap seamlessly:
-1. When you focus on a search field in SmartTube, Stremio, Kodi, or TV Bro and press the physical remote **Mic** button, the Jio Voice Assistant overlay pops up as usual.
-2. Speak your search query normally (e.g. *"Inception trailer"*, *"Lofi music"*).
-3. Jio's cloud ASR transcribes the audio into its floating overlay (`:id/voiceStatesView`).
-4. **MicBridge instantly reads the transcribed text, sends a back key event (`GLOBAL_ACTION_BACK`) to dismiss the Jio overlay, and injects the text via `ACTION_SET_TEXT` directly into the foreground app's search box!**
+1. **Never Click the On-Screen App Mic Icon:** Clicking the on-screen mic button inside SmartTube/Stremio invokes Android's protected `SpeechRecognizer` API, which Jio firmware blocks.
+2. **Focus the Search Box:** Open search in SmartTube, Stremio, Kodi, or TV Bro and focus on the input box.
+3. **Press and HOLD the Remote Mic Button While Speaking:** The Jio BLE Remote transmits voice packets only while the physical button is held down. Press and **hold** the Mic button on the remote while speaking, then release it when done.
+4. **Cloud Transcription & Injection:** Jio's cloud ASR transcribes the audio into its floating overlay (`:id/voiceStatesView`).
+5. **MicBridge Instant Injection:** MicBridge reads the transcribed text, sends `GLOBAL_ACTION_BACK` to dismiss the Jio overlay, and injects the text via `ACTION_SET_TEXT` directly into the foreground app's search box!
+
+> [!NOTE]
+> **Toolkit Improvements in MicBridge v1.2:**
+> - **Prompt String Rejection:** Rejects system prompts (`"Press Voice Button"`, `"Speak Now"`, `"Listening..."`, etc.) so they are never erroneously captured as search terms.
+> - **Smart Error Detection:** Detects when speech timed out or could not be heard, automatically dismissing the overlay without pasting garbage text.
 
 **How to Install & Enable MicBridge:**
 * **Via Toolkit (Recommended):**
