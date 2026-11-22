@@ -24,7 +24,7 @@ flowchart LR
     B --> C["3. Run Post-Setup<br/>(Debloat & Custom TV)"]
 ```
 
-1. **Run the Unlocker:** Double-click **`UNLOCK_ADB_ETHERNET.bat`** (or **`UNLOCK_ADB_WIFI.bat`**).
+1. **Run the Unlocker:** Double-click **`UNLOCK_ADB_ETHERNET.bat`** (or **`UNLOCK_ADB_ORIGINAL_LAB.bat`** for the original verified zero-401 standalone lab).
 2. **Reboot the Box:** Unplug the **12V DC power cord** from the back of the STB, wait 5 seconds, and plug it back in.
 3. **Customize & Debloat:** Once the console prints the success banner, double-click **`1CLICK_POST_ADB_SETUP.bat`** to install Projectivy Launcher, Aptoide TV, TV Bro, CleanYourTV remote hotkeys, and debloat stock Jio ads.
 

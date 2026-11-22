@@ -583,10 +583,15 @@ def handle(conn, addr):
                 log_packet("OUTGOING", cid, "HTTP/1.1 200 OK", resp_headers, body_resp, note="Bootstrap Account Response")
                 continue
             
-            # ---- HTTP DIGEST AUTH CHALLENGE (for BlueBank & strict TR-069 CPEs) ----
+            # ---- HTTP DIGEST AUTH CHALLENGE (DISABLED BY DEFAULT) ----
+            # CRITICAL DISCOVERY: In the original working release, Mock ACS NEVER challenged
+            # with 401 Digest. It directly accepted cwmp:Inform with 200 OK InformResponse.
+            # Challenging with 401 causes infinite 401 loops on JMSD200, JHS, and deactivated
+            # boxes. The default behavior is now DIRECT 200 OK (Zero-401 Direct Unlock).
+            enable_401 = os.environ.get("ENABLE_401_CHALLENGE", "").lower() in ("1", "true", "yes")
             is_bluebank = any(b in body_str.lower() for b in ["bluebank", "jhsd", "jhsc", "jhsb", "iwedia"])
             
-            if not has_auth and not has_challenged and is_bluebank and ("cwmp:Inform" in body_str or len(body) > 0):
+            if enable_401 and not has_auth and not has_challenged and is_bluebank and ("cwmp:Inform" in body_str or len(body) > 0):
                 has_challenged = True
                 relayed_401 = False
                 
@@ -660,7 +665,7 @@ def handle(conn, addr):
                     nc_str = auth_params.get("nc", "")
                     log(f"{cid} [AUTH] Client authenticated via HTTP Digest: username='{user_str}', uri='{uri_str}', nc={nc_str}")
                 
-                session_id = uuid.uuid4().hex
+                session_id = uuid.uuid4().hex[:16]
                 jsession_cookie = session_id + ".nvmbdprv126605"
                 conn_sess = {
                     "tasks": init_task_queue(),
@@ -670,12 +675,14 @@ def handle(conn, addr):
                 with SESSIONS_LOCK:
                     SESSIONS[jsession_cookie] = conn_sess
                     SESSIONS[session_id] = conn_sess
+                    SESSIONS[addr[0]] = conn_sess  # IP fallback for JMSD200 and boxes that drop cookies
                     if cookie:
                         SESSIONS[cookie] = conn_sess
                 
                 relayed_inform = False
-                # VARIANT 1: Try Upstream Inform Relay if online and authenticated
-                if UPSTREAM_ONLINE and has_auth:
+                # VARIANT 1: Try Upstream Inform Relay if online and authenticated (ONLY if explicitly enabled)
+                relay_enabled = os.environ.get("ENABLE_UPSTREAM_RELAY", "").lower() in ("1", "true", "yes")
+                if relay_enabled and UPSTREAM_ONLINE and has_auth:
                     try:
                         log(f"{cid} [RELAY] Forwarding authenticated Inform to Real Jio ACS...")
                         status, reason, resp_headers_list, resp_body = forward_to_real_acs("POST", path, headers, body)
@@ -694,35 +701,40 @@ def handle(conn, addr):
                     except Exception as e:
                         log(f"{cid} [WARN] Upstream Inform relay failed ({e}), using local InformResponse fallback")
                 
-                # VARIANT 2: Offline Standalone InformResponse
+                # VARIANT 2: Standalone GenieACS-style InformResponse (Zero-401 Direct Unlock)
                 if not relayed_inform:
                     resp_xml = INFORM_RESPONSE_TEMPLATE.format(ID=req_id).encode("utf-8")
                     date_hdr = get_http_date().encode()
                     resp_headers = {
-                        "Server": "nginx/1.30.1",
+                        "Server": "GenieACS/1.2.13",
+                        "SOAPServer": "GenieACS/1.2.13",
                         "Date": date_hdr.decode(),
                         "Content-Type": "text/xml; charset=utf-8",
                         "Content-Length": str(len(resp_xml)),
-                        "Set-Cookie": f"JSESSIONID={jsession_cookie}; path=/",
+                        "Set-Cookie": f"session={session_id}; path=/",
                         "Connection": "keep-alive"
                     }
                     http_resp = (
                         b"HTTP/1.1 200 OK\r\n"
-                        b"Server: nginx/1.30.1\r\n"
+                        b"Server: GenieACS/1.2.13\r\n"
+                        b"SOAPServer: GenieACS/1.2.13\r\n"
                         b"Date: " + date_hdr + b"\r\n"
                         b"Content-Type: text/xml; charset=utf-8\r\n"
                         b"Content-Length: " + str(len(resp_xml)).encode() + b"\r\n"
+                        b"Set-Cookie: session=" + session_id.encode() + b"; path=/\r\n"
                         b"Set-Cookie: JSESSIONID=" + jsession_cookie.encode() + b"; path=/\r\n"
                         b"Connection: keep-alive\r\n\r\n" + resp_xml
                     )
                     s.sendall(http_resp)
-                    log(f"{cid} <<< [OFFLINE] InformResponse [cookie={jsession_cookie[:16]}...]")
-                    log_packet("OUTGOING", cid, "HTTP/1.1 200 OK", resp_headers, resp_xml, note="Local Standalone InformResponse")
+                    log(f"{cid} <<< [STANDALONE] InformResponse [session={session_id[:8]}...]")
+                    log_packet("OUTGOING", cid, "HTTP/1.1 200 OK", resp_headers, resp_xml, note="Local Standalone InformResponse (Zero-401)")
                     continue
             
             # ---- CWMP: STATE MACHINE & SESSION HIJACK ----
-            # Match session: by Cookie (SDMC style) OR by connection session (BlueBank style)
+            # Match session: by Cookie (SDMC/GenieACS style), connection session, or IP (JMSD200 style)
             sess = SESSIONS.get(cookie) if cookie else conn_sess
+            if not sess and addr[0] in SESSIONS:
+                sess = SESSIONS[addr[0]]
             if sess:
                 # Empty POST from CPE indicates ACS turn -> HIJACK POINT!
                 # Even if handshake was relayed from Real ACS, we drop Real ACS here and inject our local ADB unlock commands!
@@ -808,13 +820,18 @@ def main():
         log(f"  Target STB Family: {TARGET_MODEL.upper()} Series")
         log(f"  Active Certificate: {os.path.basename(CERT_FILE)}")
         
-        # Test upstream connectivity to Real Jio ACS
-        log("  Checking upstream connectivity to Real Jio ACS (49.40.134.113:8443)...")
-        UPSTREAM_ONLINE = test_upstream_connectivity(timeout=1.5)
-        if UPSTREAM_ONLINE:
-            log("  [+] Mode: ONLINE RELAY (JioFiber WAN Active - Upstream ACS Reachable)")
+        # Upstream relay is opt-in; default is rock-solid offline standalone (Zero-401 Direct Unlock)
+        relay_requested = os.environ.get("ENABLE_UPSTREAM_RELAY", "").lower() in ("1", "true", "yes")
+        if relay_requested:
+            log("  Checking upstream connectivity to Real Jio ACS (49.40.134.113:8443)...")
+            UPSTREAM_ONLINE = test_upstream_connectivity(timeout=1.5)
+            if UPSTREAM_ONLINE:
+                log("  [+] Mode: ONLINE RELAY (JioFiber WAN Active - Upstream ACS Reachable)")
+            else:
+                log("  [!] Mode: OFFLINE STANDALONE (Upstream ACS Unreachable - Falling back to local unlock)")
         else:
-            log("  [!] Mode: OFFLINE STANDALONE (Zero Internet / Non-Jio ISP Mode - 100% Offline)")
+            UPSTREAM_ONLINE = False
+            log("  [+] Mode: STANDALONE OFFLINE (Default - Zero-401 Direct Unlock for All Models)")
 
         # Initialize packet log file immediately so all diagnostic files exist on startup
         try:
