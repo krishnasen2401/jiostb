@@ -265,7 +265,39 @@ Look at the incoming connection lines in your Mock ACS terminal:
 
 ---
 
-### 7. How to Read the Diagnostic Logs & Open a GitHub Issue
+### 7. Why does Google Cast / Casting fail on JHSD200 v2 or other Jio STBs?
+#### Root Cause:
+1. **0 MB Dummy Stub:** In Jio's official stock firmware, `com.google.android.apps.mediashell` is replaced with an empty 0 MB placeholder APK (`version 0.0`, `versionCode 1`). It lacks Chromecast DRM certs and Google Cast Receiver capability.
+2. **DIAL Redirection:** Jio's internal DIAL server forcibly intercepts YouTube casting requests and tries to invoke the stock `com.jio.yt` app.
+
+#### Verified Fixes:
+1. **Install Genuine Google Cast Receiver:**
+   Run `1CLICK_POST_ADB_SETUP.bat` (Option 1 or 3), or run directly via ADB:
+   ```cmd
+   adb install -r apks/mediashell.apk
+   ```
+2. **Flawless Phone/PC YouTube Casting via SmartTube (TV Code Pairing):**
+   Since Jio STBs lack certified Widevine Level 1 Google Cast hardware keys, pair YouTube directly:
+   * Open **SmartTube** on your TV $\to$ **Settings** $\to$ **Remote control** $\to$ **Link with TV code**.
+   * On your phone YouTube app $\to$ **Settings** $\to$ **Watch on TV** $\to$ **Link with TV code** and enter the code.
+   * Casting will now work 100% reliably from any phone, tablet, or browser without dropping connections.
+3. **Screen Mirroring & Local Video Casting:** Sideload **Web Video Caster Receiver** or **AirScreen** onto the STB.
+
+---
+
+### 8. Why does Factory Reset fix an STB stuck in a TLS / SSL error or 401 loop?
+#### The Technical Explanation:
+* **TR-069 Exponential Backoff:** If the STB encounters a failed TLS handshake or an interrupted CWMP session, Android's `com.jio.tr069client` stores retry backoff penalty timers (5s $\to$ 10s $\to$ 20s $\to$ 40s $\to$ 80s $\to$ hours) and cached auth nonces inside `/data/data/com.jio.tr069client/`. Even if you run the correct lab script, the STB drops or delays incoming connections.
+* **What Factory Reset Does:**
+  Performing a quick **Factory Reset** (**Settings** $\to$ **Device Preferences** $\to$ **Reset** $\to$ **Erase Everything**, or holding the physical pinhole recovery button on power-on) wipes `/data`.
+  When the STB boots into the clean Initial Setup Wizard (OOBE):
+  1. The backoff penalty timer is completely cleared.
+  2. The STB immediately fires an initial `1 BOOT` Inform on port 8443 / 9443 within seconds.
+  3. The lab server intercepts this clean Inform and unlocks ADB on the very first boot without any retries!
+
+---
+
+### 9. How to Read the Diagnostic Logs & Open a GitHub Issue
 If your STB does not unlock after 2 minutes, check the 3 diagnostic log files generated automatically in the toolkit root folder:
 
 | Log File | What It Records |
