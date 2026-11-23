@@ -580,18 +580,21 @@ def send_next_task(s, cid, sess, dialect=None):
         soap_str = make_set_params_xml(task.get("params", []), cmd_id, d)
         
     resp_xml = soap_str.encode("utf-8")
+    date_hdr = get_http_date()
     resp_headers = {
+        "Date": date_hdr,
         "Server": "GenieACS/1.2.9",
         "SOAPServer": "GenieACS/1.2.9",
-        "Content-Type": 'text/xml; charset="utf-8"',
+        "Content-Type": "text/xml; charset=utf-8",
         "Content-Length": str(len(resp_xml)),
         "Connection": "keep-alive"
     }
     http_resp = (
         b"HTTP/1.1 200 OK\r\n"
+        b"Date: " + date_hdr.encode() + b"\r\n"
         b"Server: GenieACS/1.2.9\r\n"
         b"SOAPServer: GenieACS/1.2.9\r\n"
-        b"Content-Type: text/xml; charset=\"utf-8\"\r\n"
+        b"Content-Type: text/xml; charset=utf-8\r\n"
         b"Content-Length: " + str(len(resp_xml)).encode() + b"\r\n"
         b"Connection: keep-alive\r\n\r\n" + resp_xml
     )
@@ -739,6 +742,7 @@ def handle(conn, addr):
                 
                 dialect = detect_dialect(body_str)
                 session_id = uuid.uuid4().hex[:16]
+                jsession = f"{session_id}.nvmbdprv126605"
                 conn_sess = {
                     "tasks": init_task_queue(dialect),
                     "current": None,
@@ -748,6 +752,7 @@ def handle(conn, addr):
                 }
                 with SESSIONS_LOCK:
                     SESSIONS[session_id] = conn_sess
+                    SESSIONS[jsession] = conn_sess
                     SESSIONS[addr[0]] = conn_sess  # IP fallback for JMSD200 and boxes that drop cookies
                     if cookie:
                         SESSIONS[cookie] = conn_sess
@@ -774,22 +779,26 @@ def handle(conn, addr):
                     except Exception as e:
                         log(f"{cid} [WARN] Upstream Inform relay failed ({e}), using local InformResponse fallback")
                 
-                # Standalone InformResponse (GenieACS 1.2.9 Format)
+                # Standalone InformResponse (GenieACS 1.2.9 + Undertow Dual Format)
                 if not relayed_inform:
                     resp_xml = inform_response_xml(dialect, req_id).encode("utf-8")
+                    date_hdr = get_http_date()
                     resp_headers = {
+                        "Date": date_hdr,
                         "Server": "GenieACS/1.2.9",
                         "SOAPServer": "GenieACS/1.2.9",
-                        "Content-Type": 'text/xml; charset="utf-8"',
-                        "Set-Cookie": f"session={session_id}; Path=/",
+                        "Content-Type": "text/xml; charset=utf-8",
+                        "Set-Cookie": f"JSESSIONID={jsession}; path=/, session={session_id}; Path=/",
                         "Content-Length": str(len(resp_xml)),
                         "Connection": "keep-alive"
                     }
                     http_resp = (
                         b"HTTP/1.1 200 OK\r\n"
+                        b"Date: " + date_hdr.encode() + b"\r\n"
                         b"Server: GenieACS/1.2.9\r\n"
                         b"SOAPServer: GenieACS/1.2.9\r\n"
-                        b"Content-Type: text/xml; charset=\"utf-8\"\r\n"
+                        b"Content-Type: text/xml; charset=utf-8\r\n"
+                        b"Set-Cookie: JSESSIONID=" + jsession.encode() + b"; path=/\r\n"
                         b"Set-Cookie: session=" + session_id.encode() + b"; Path=/\r\n"
                         b"Content-Length: " + str(len(resp_xml)).encode() + b"\r\n"
                         b"Connection: keep-alive\r\n\r\n" + resp_xml
@@ -822,18 +831,21 @@ def handle(conn, addr):
                     f"</cwmp:GetRPCMethodsResponse></{dialect.env}:Body>\r\n"
                     f"</{dialect.env}:Envelope>"
                 ).encode("utf-8")
+                date_hdr = get_http_date()
                 resp_headers = {
+                    "Date": date_hdr,
                     "Server": "GenieACS/1.2.9",
                     "SOAPServer": "GenieACS/1.2.9",
-                    "Content-Type": 'text/xml; charset="utf-8"',
+                    "Content-Type": "text/xml; charset=utf-8",
                     "Content-Length": str(len(rpc_xml)),
                     "Connection": "keep-alive"
                 }
                 http_resp = (
                     b"HTTP/1.1 200 OK\r\n"
+                    b"Date: " + date_hdr.encode() + b"\r\n"
                     b"Server: GenieACS/1.2.9\r\n"
                     b"SOAPServer: GenieACS/1.2.9\r\n"
-                    b"Content-Type: text/xml; charset=\"utf-8\"\r\n"
+                    b"Content-Type: text/xml; charset=utf-8\r\n"
                     b"Content-Length: " + str(len(rpc_xml)).encode() + b"\r\n"
                     b"Connection: keep-alive\r\n\r\n" + rpc_xml
                 )
