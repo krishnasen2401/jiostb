@@ -201,6 +201,8 @@ except Exception: pass
 
 SESSIONS = {}
 SESSIONS_LOCK = threading.Lock()
+CHALLENGED_IPS = {}  # ip -> float(timestamp) tracking single 401 challenges
+CHALLENGED_LOCK = threading.Lock()
 loglock = threading.Lock()
 
 def log(m, to_stdout=True):
@@ -583,15 +585,28 @@ def handle(conn, addr):
                 log_packet("OUTGOING", cid, "HTTP/1.1 200 OK", resp_headers, body_resp, note="Bootstrap Account Response")
                 continue
             
-            # ---- HTTP DIGEST AUTH CHALLENGE (DISABLED BY DEFAULT) ----
-            # CRITICAL DISCOVERY: In the original working release, Mock ACS NEVER challenged
-            # with 401 Digest. It directly accepted cwmp:Inform with 200 OK InformResponse.
-            # Challenging with 401 causes infinite 401 loops on JMSD200, JHS, and deactivated
-            # boxes. The default behavior is now DIRECT 200 OK (Zero-401 Direct Unlock).
+            # ---- HTTP DIGEST AUTH CHALLENGE (SMART AUTO-CHALLENGE) ----
+            # BlueBank JMSD200 / newer builds (e.g. 25.1.9) requesting /ftacs-digest require a 401 Digest
+            # challenge before they will complete the CWMP session and send an empty POST.
+            # To prevent infinite 401 loops on non-digest boxes (SDMC, old releases), we track
+            # challenges globally per client IP in a 20-second window.
+            # If the box returns without auth on turn 2 -> fall back immediately to Zero-401 InformResponse!
             enable_401 = os.environ.get("ENABLE_401_CHALLENGE", "").lower() in ("1", "true", "yes")
-            is_bluebank = any(b in body_str.lower() for b in ["bluebank", "jhsd", "jhsc", "jhsb", "iwedia"])
+            is_bluebank = any(b in body_str.lower() for b in ["bluebank", "jhsd", "jhsc", "jhsb", "iwedia", "jmsd200"])
             
-            if enable_401 and not has_auth and not has_challenged and is_bluebank and ("cwmp:Inform" in body_str or len(body) > 0):
+            client_ip = addr[0]
+            with CHALLENGED_LOCK:
+                last_ch = CHALLENGED_IPS.get(client_ip, 0)
+                already_challenged = (time.time() - last_ch) < 20.0
+            
+            should_challenge = False
+            if not has_auth and not already_challenged:
+                if ("/ftacs-digest" in path) or is_bluebank or enable_401:
+                    should_challenge = True
+            
+            if should_challenge and ("cwmp:Inform" in body_str or len(body) > 0):
+                with CHALLENGED_LOCK:
+                    CHALLENGED_IPS[client_ip] = time.time()
                 has_challenged = True
                 relayed_401 = False
                 
@@ -659,6 +674,8 @@ def handle(conn, addr):
                 log(f"{cid} [INFORM] Device Info: {dev_desc}")
                 
                 if has_auth:
+                    with CHALLENGED_LOCK:
+                        CHALLENGED_IPS.pop(addr[0], None)
                     auth_params = extract_auth_params(headers.get("authorization", ""))
                     user_str = auth_params.get("username", "unknown")
                     uri_str = auth_params.get("uri", "")
@@ -701,34 +718,79 @@ def handle(conn, addr):
                     except Exception as e:
                         log(f"{cid} [WARN] Upstream Inform relay failed ({e}), using local InformResponse fallback")
                 
-                # VARIANT 2: Standalone GenieACS-style InformResponse (Zero-401 Direct Unlock)
+                # VARIANT 2: Standalone InformResponse (Undertow/Nginx Format)
                 if not relayed_inform:
                     resp_xml = INFORM_RESPONSE_TEMPLATE.format(ID=req_id).encode("utf-8")
                     date_hdr = get_http_date().encode()
                     resp_headers = {
-                        "Server": "GenieACS/1.2.13",
-                        "SOAPServer": "GenieACS/1.2.13",
+                        "Server": "nginx/1.30.1",
                         "Date": date_hdr.decode(),
                         "Content-Type": "text/xml; charset=utf-8",
                         "Content-Length": str(len(resp_xml)),
-                        "Set-Cookie": f"session={session_id}; path=/",
+                        "X-Powered-By": "Undertow/3",
+                        "Set-Cookie": f"JSESSIONID={jsession_cookie}; path=/",
                         "Connection": "keep-alive"
                     }
                     http_resp = (
                         b"HTTP/1.1 200 OK\r\n"
-                        b"Server: GenieACS/1.2.13\r\n"
-                        b"SOAPServer: GenieACS/1.2.13\r\n"
+                        b"Server: nginx/1.30.1\r\n"
                         b"Date: " + date_hdr + b"\r\n"
                         b"Content-Type: text/xml; charset=utf-8\r\n"
                         b"Content-Length: " + str(len(resp_xml)).encode() + b"\r\n"
-                        b"Set-Cookie: session=" + session_id.encode() + b"; path=/\r\n"
+                        b"X-Powered-By: Undertow/3\r\n"
                         b"Set-Cookie: JSESSIONID=" + jsession_cookie.encode() + b"; path=/\r\n"
+                        b"Set-Cookie: session=" + session_id.encode() + b"; path=/\r\n"
                         b"Connection: keep-alive\r\n\r\n" + resp_xml
                     )
                     s.sendall(http_resp)
                     log(f"{cid} <<< [STANDALONE] InformResponse [session={session_id[:8]}...]")
-                    log_packet("OUTGOING", cid, "HTTP/1.1 200 OK", resp_headers, resp_xml, note="Local Standalone InformResponse (Zero-401)")
+                    log_packet("OUTGOING", cid, "HTTP/1.1 200 OK", resp_headers, resp_xml, note="Local Standalone InformResponse")
                     continue
+            
+            # ---- CWMP: GETRPCMETHODS (OPTIONAL CPE QUERY) ----
+            if "GetRPCMethods" in body_str:
+                m = re.search(r'<cwmp:ID[^>]*>([^<]+)</cwmp:ID>', body_str)
+                rpc_id = m.group(1).strip() if m else "0"
+                rpc_xml = (
+                    b"<?xml version=\"1.0\" encoding=\"UTF-8\"?>\r\n"
+                    b"<soap-env:Envelope xmlns:soap-enc=\"http://schemas.xmlsoap.org/soap/encoding/\" "
+                    b"xmlns:soap-env=\"http://schemas.xmlsoap.org/soap/envelope/\" "
+                    b"xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\" "
+                    b"xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" "
+                    b"xmlns:cwmp=\"urn:dslforum-org:cwmp-1-0\">\r\n"
+                    b"<soap-env:Header><cwmp:ID soap-env:mustUnderstand=\"1\">" + rpc_id.encode() + b"</cwmp:ID></soap-env:Header>\r\n"
+                    b"<soap-env:Body><cwmp:GetRPCMethodsResponse>\r\n"
+                    b"<MethodList soap-enc:arrayType=\"xsd:string[4]\">\r\n"
+                    b"<string>GetRPCMethods</string>\r\n"
+                    b"<string>SetParameterValues</string>\r\n"
+                    b"<string>GetParameterValues</string>\r\n"
+                    b"<string>Inform</string>\r\n"
+                    b"</MethodList>\r\n"
+                    b"</cwmp:GetRPCMethodsResponse></soap-env:Body>\r\n"
+                    b"</soap-env:Envelope>"
+                )
+                date_hdr = get_http_date().encode()
+                resp_headers = {
+                    "Server": "nginx/1.30.1",
+                    "Date": date_hdr.decode(),
+                    "Content-Type": "text/xml; charset=utf-8",
+                    "Content-Length": str(len(rpc_xml)),
+                    "X-Powered-By": "Undertow/3",
+                    "Connection": "keep-alive"
+                }
+                http_resp = (
+                    b"HTTP/1.1 200 OK\r\n"
+                    b"Server: nginx/1.30.1\r\n"
+                    b"Date: " + date_hdr + b"\r\n"
+                    b"Content-Type: text/xml; charset=utf-8\r\n"
+                    b"Content-Length: " + str(len(rpc_xml)).encode() + b"\r\n"
+                    b"X-Powered-By: Undertow/3\r\n"
+                    b"Connection: keep-alive\r\n\r\n" + rpc_xml
+                )
+                s.sendall(http_resp)
+                log(f"{cid} <<< GetRPCMethodsResponse")
+                log_packet("OUTGOING", cid, "HTTP/1.1 200 OK", resp_headers, rpc_xml, note="GetRPCMethodsResponse")
+                continue
             
             # ---- CWMP: STATE MACHINE & SESSION HIJACK ----
             # Match session: by Cookie (SDMC/GenieACS style), connection session, or IP (JMSD200 style)
