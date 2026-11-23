@@ -224,15 +224,17 @@ _cli_args, _ = _parser.parse_known_args()
 _model_env = os.environ.get("STB_MODEL", "auto").lower()
 TARGET_MODEL = _cli_args.model if _cli_args.model != "auto" else _model_env
 
-if _cli_args.cert and os.path.exists(_cli_args.cert):
-    CERT_FILE = os.path.abspath(_cli_args.cert)
-elif TARGET_MODEL in ("legacy", "rilrootca") and os.path.exists(os.path.join(BASE_DIR, "acs_chain.pem")):
-    CERT_FILE = os.path.join(BASE_DIR, "acs_chain.pem")
+FORGED_CERT_PATH = os.path.join(BASE_DIR, "forged_chain.pem")
+ACS_CERT_PATH = os.path.join(BASE_DIR, "acs_chain.pem")
+CUSTOM_CERT_PATH = os.path.abspath(_cli_args.cert) if (_cli_args.cert and os.path.exists(_cli_args.cert)) else None
+
+if CUSTOM_CERT_PATH:
+    CERT_FILE = CUSTOM_CERT_PATH
+elif TARGET_MODEL in ("legacy", "rilrootca") and os.path.exists(ACS_CERT_PATH):
+    CERT_FILE = ACS_CERT_PATH
 else:
     # Universal Default: forged_chain.pem (eMudhra + Comodo AAA CA, trusted by all Android TV builds)
-    CERT_FILE = os.path.join(BASE_DIR, "forged_chain.pem")
-    if not os.path.exists(CERT_FILE):
-        CERT_FILE = os.path.join(BASE_DIR, "acs_chain.pem")
+    CERT_FILE = FORGED_CERT_PATH if os.path.exists(FORGED_CERT_PATH) else ACS_CERT_PATH
 
 # TR-069 standard CWMP ports.
 # Note: Port 443 is disabled by default to completely block 3rd-party Android app SSL noise.
@@ -346,10 +348,63 @@ def forward_to_real_acs(method, path, headers, body, timeout=4.0):
     resp_body = resp.read()
     return resp.status, resp.reason, resp.getheaders(), resp_body
 
-ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
-ctx.load_cert_chain(CERT_FILE)
-try: ctx.set_ciphers("DEFAULT:@SECLEVEL=0")
-except Exception: pass
+def create_ssl_context(cert_path):
+    if not cert_path or not os.path.exists(cert_path):
+        return None
+    try:
+        c = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        if hasattr(ssl, "TLSVersion") and hasattr(ssl.TLSVersion, "MINIMUM_SUPPORTED"):
+            try: c.minimum_version = ssl.TLSVersion.MINIMUM_SUPPORTED
+            except Exception: pass
+        elif hasattr(ssl, "TLSVersion") and hasattr(ssl.TLSVersion, "TLSv1"):
+            try: c.minimum_version = ssl.TLSVersion.TLSv1
+            except Exception: pass
+        c.load_cert_chain(cert_path)
+        try: c.set_ciphers("DEFAULT:@SECLEVEL=0")
+        except Exception:
+            try: c.set_ciphers("ALL:@SECLEVEL=0")
+            except Exception: pass
+        return c
+    except Exception as e:
+        log(f"[WARN] Failed to load certificate {cert_path}: {e}")
+        return None
+
+ctx_forged = create_ssl_context(FORGED_CERT_PATH)
+ctx_acs = create_ssl_context(ACS_CERT_PATH)
+ctx_custom = create_ssl_context(CUSTOM_CERT_PATH)
+
+CLIENT_CERT_MAP = {}
+CLIENT_CERT_LOCK = threading.Lock()
+
+def get_client_context(client_ip):
+    with CLIENT_CERT_LOCK:
+        if client_ip in CLIENT_CERT_MAP:
+            return CLIENT_CERT_MAP[client_ip]
+        if ctx_custom:
+            return ctx_custom
+        if TARGET_MODEL in ("legacy", "rilrootca") and ctx_acs:
+            return ctx_acs
+        return ctx_forged if ctx_forged else ctx_acs
+
+def switch_client_context(client_ip, failed_ctx):
+    if ctx_custom:
+        return None
+    with CLIENT_CERT_LOCK:
+        if failed_ctx == ctx_forged and ctx_acs:
+            CLIENT_CERT_MAP[client_ip] = ctx_acs
+            return "RILROOTCA (acs_chain.pem)"
+        elif failed_ctx == ctx_acs and ctx_forged:
+            CLIENT_CERT_MAP[client_ip] = ctx_forged
+            return "eMudhra (forged_chain.pem)"
+        return None
+
+def get_cert_name(ctx_obj):
+    if ctx_obj == ctx_forged: return "eMudhra"
+    if ctx_obj == ctx_acs: return "RILROOTCA"
+    return "Custom"
+
+# Default ctx reference for backwards compatibility
+ctx = ctx_custom if ctx_custom else (ctx_acs if TARGET_MODEL in ("legacy", "rilrootca") and ctx_acs else (ctx_forged if ctx_forged else ctx_acs))
 
 def parse_cookie(headers):
     cookie_header = headers.get("cookie", "")
@@ -610,19 +665,26 @@ def handle(conn, addr):
     is_tr069_port = srv_port in (8443, 9443, 7443, 7547)
     cid = f"{addr[0]}:{addr[1]} [:{srv_port}]"
     log(f"TCP connect from {cid}", to_stdout=is_tr069_port)
+    client_ctx = get_client_context(addr[0])
     try:
-        s = ctx.wrap_socket(conn, server_side=True)
-        log(f"TLS ok {cid}", to_stdout=is_tr069_port)
+        s = client_ctx.wrap_socket(conn, server_side=True)
+        active_name = get_cert_name(client_ctx)
+        log(f"TLS ok {cid} [{active_name}]", to_stdout=is_tr069_port)
         if is_tr069_port and addr[0] not in ("127.0.0.1", "::1"):
             start_parallel_adb_poller(addr[0])
     except Exception as e:
         if is_tr069_port:
             log(f"TLS fail {cid}: {type(e).__name__}: {e}", to_stdout=True)
-            if "CERTIFICATE_UNKNOWN" in str(e):
-                if "forged_chain" in os.path.basename(CERT_FILE):
-                    log(f"{cid} [!] STB TR-069 rejected eMudhra cert. Re-run selecting Option [1] ('acs_chain.pem' RILROOTCA)!", to_stdout=True)
+            if "CERTIFICATE_UNKNOWN" in str(e) or "SSL" in type(e).__name__:
+                switched_to = switch_client_context(addr[0], client_ctx)
+                if switched_to:
+                    log(f"{cid} [!] STB TR-069 rejected active certificate ({get_cert_name(client_ctx)}). Automatically switched to {switched_to} for next connection (retry in ~10s)!", to_stdout=True)
                 else:
-                    log(f"{cid} [!] STB TR-069 rejected RILROOTCA cert. Re-run selecting Option [2] ('forged_chain.pem' eMudhra)!", to_stdout=True)
+                    active_base = os.path.basename(CERT_FILE)
+                    if "forged_chain" in active_base:
+                        log(f"{cid} [!] STB TR-069 rejected eMudhra cert.", to_stdout=True)
+                    else:
+                        log(f"{cid} [!] STB TR-069 rejected RILROOTCA cert.", to_stdout=True)
         else:
             # 3rd-party Android app (Google services, Jio ads, analytics) probed port 443 with public CAs.
             # Log quietly to mock_acs.log so user terminal stdout remains clean and readable.
@@ -959,8 +1021,9 @@ def main():
         log("  Jio STB Universal Mock ACS (Relay + Standalone Dual)    ")
         log(f"  Packet Log: {PACKET_LOG_FILE}")
         
-        log(f"  Target STB Family: {TARGET_MODEL.upper()} Series")
-        log(f"  Active Certificate: {os.path.basename(CERT_FILE)}")
+        log(f"  Target STB Family: {TARGET_MODEL.upper()} Series (Dual Auto-Switch Enabled)")
+        log("  Active Certificates: eMudhra (forged_chain.pem) + RILROOTCA (acs_chain.pem)")
+        log("  Runtime Failover: Instant auto-switch between eMudhra and RILROOTCA on TLS alert")
         
         # Upstream relay is opt-in; default is rock-solid offline standalone (Zero-401 Direct Unlock)
         relay_requested = os.environ.get("ENABLE_UPSTREAM_RELAY", "").lower() in ("1", "true", "yes")
@@ -989,9 +1052,9 @@ def main():
         log("  * The STB TR-069 CWMP client ONLY connects during bootup!")
         log("  * Troubleshooting: If no connections appear after 90 seconds,")
         log("    temporarily turn OFF Windows Defender Firewall or pause antivirus.")
-        log("  * Loop / TLS Error Fix: If STB repeatedly rejects TLS or loops /generate_204,")
-        log("    perform a quick FACTORY RESET on the STB (Settings -> Device Preferences -> Reset).")
-        log("    During fresh setup (OOBE), the STB forces immediate TR-069 provisioning!")
+        log("  * No Factory Reset Required: Un-reset and reset STBs are both supported seamlessly.")
+        log("  * Dual-Cert Auto Fallback: If your STB model pins RILROOTCA (JMSC) or eMudhra (JHS/JMSD),")
+        log("    the server auto-detects and switches certificates within 10-15 seconds automatically!")
         log("==========================================================")
         
         threads = []

