@@ -46,28 +46,88 @@ def _forge_netcheck():
     ct = AES.new(NETCHECK_KEY, AES.MODE_CBC, iv).encrypt(data)
     return base64.b64encode(iv + ct).decode()
 
-# --- CWMP Payloads ---
-INFORM_RESPONSE_TEMPLATE = """<?xml version="1.0" encoding="UTF-8"?>
-<soap-env:Envelope xmlns:soap-enc="http://schemas.xmlsoap.org/soap/encoding/" xmlns:soap-env="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:cwmp="urn:dslforum-org:cwmp-1-0">
-<soap-env:Header><cwmp:ID soap-env:mustUnderstand="1">{ID}</cwmp:ID></soap-env:Header>
-<soap-env:Body><cwmp:InformResponse><MaxEnvelopes>1</MaxEnvelopes></cwmp:InformResponse></soap-env:Body>
-</soap-env:Envelope>"""
+# --- CWMP Dynamic Dialect & Payloads (FerroSTB Aligned) ---
+class SoapDialect:
+    def __init__(self, env="soap-env", enc="soap-enc", cwmp_ns="urn:dslforum-org:cwmp-1-0", root="Device"):
+        self.env = env
+        self.enc = enc
+        self.cwmp_ns = cwmp_ns
+        self.root = root
 
-def make_set_params_xml(params, req_id):
+def detect_dialect(body_str):
+    env = "soap-env" if "<soap-env:Envelope" in body_str else ("soap" if "<soap:Envelope" in body_str else "SOAP-ENV")
+    enc = "soap-enc" if "xmlns:soap-enc=" in body_str else "SOAP-ENC"
+    cwmp_ns = "urn:dslforum-org:cwmp-1-2" if "urn:dslforum-org:cwmp-1-2" in body_str else "urn:dslforum-org:cwmp-1-0"
+    root = "InternetGatewayDevice" if "InternetGatewayDevice." in body_str else "Device"
+    return SoapDialect(env, enc, cwmp_ns, root)
+
+def inform_response_xml(d, req_id):
+    return (
+        f'<?xml version="1.0" encoding="UTF-8"?>'
+        f'<{d.env}:Envelope xmlns:{d.env}="http://schemas.xmlsoap.org/soap/envelope/" '
+        f'xmlns:{d.enc}="http://schemas.xmlsoap.org/soap/encoding/" '
+        f'xmlns:xsd="http://www.w3.org/2001/XMLSchema" '
+        f'xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" '
+        f'xmlns:cwmp="{d.cwmp_ns}">'
+        f'<{d.env}:Header><cwmp:ID {d.env}:mustUnderstand="1">{req_id}</cwmp:ID></{d.env}:Header>'
+        f'<{d.env}:Body><cwmp:InformResponse><MaxEnvelopes>1</MaxEnvelopes></cwmp:InformResponse></{d.env}:Body>'
+        f'</{d.env}:Envelope>'
+    )
+
+def get_param_names_xml(d, req_id, path, next_level=True):
+    nl = "1" if next_level else "0"
+    return (
+        f'<?xml version="1.0" encoding="UTF-8"?>'
+        f'<{d.env}:Envelope xmlns:{d.env}="http://schemas.xmlsoap.org/soap/envelope/" '
+        f'xmlns:{d.enc}="http://schemas.xmlsoap.org/soap/encoding/" '
+        f'xmlns:xsd="http://www.w3.org/2001/XMLSchema" '
+        f'xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" '
+        f'xmlns:cwmp="{d.cwmp_ns}">'
+        f'<{d.env}:Header><cwmp:ID {d.env}:mustUnderstand="1">{req_id}</cwmp:ID></{d.env}:Header>'
+        f'<{d.env}:Body><cwmp:GetParameterNames><ParameterPath>{path}</ParameterPath><NextLevel>{nl}</NextLevel></cwmp:GetParameterNames></{d.env}:Body>'
+        f'</{d.env}:Envelope>'
+    )
+
+def set_single_param_xml(d, req_id, name, ptype, val):
+    return (
+        f'<?xml version="1.0" encoding="UTF-8"?>'
+        f'<{d.env}:Envelope xmlns:{d.env}="http://schemas.xmlsoap.org/soap/envelope/" '
+        f'xmlns:{d.enc}="http://schemas.xmlsoap.org/soap/encoding/" '
+        f'xmlns:xsd="http://www.w3.org/2001/XMLSchema" '
+        f'xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" '
+        f'xmlns:cwmp="{d.cwmp_ns}">'
+        f'<{d.env}:Header><cwmp:ID {d.env}:mustUnderstand="1">{req_id}</cwmp:ID></{d.env}:Header>'
+        f'<{d.env}:Body><cwmp:SetParameterValues>'
+        f'<ParameterList {d.enc}:arrayType="cwmp:ParameterValueStruct[1]">'
+        f'<ParameterValueStruct><Name>{name}</Name><Value xsi:type="{ptype}">{val}</Value></ParameterValueStruct>'
+        f'</ParameterList>'
+        f'<ParameterKey></ParameterKey>'
+        f'</cwmp:SetParameterValues></{d.env}:Body>'
+        f'</{d.env}:Envelope>'
+    )
+
+def make_set_params_xml(params, req_id, dialect=None):
+    d = dialect if dialect else SoapDialect()
     items = []
     for name, ptype, val in params:
         items.append(f"<ParameterValueStruct><Name>{name}</Name><Value xsi:type=\"{ptype}\">{val}</Value></ParameterValueStruct>")
     body = "\n".join(items)
-    return f"""<?xml version="1.0" encoding="UTF-8"?>
-<soap-env:Envelope xmlns:soap-enc="http://schemas.xmlsoap.org/soap/encoding/" xmlns:soap-env="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:cwmp="urn:dslforum-org:cwmp-1-0">
-<soap-env:Header><cwmp:ID soap-env:mustUnderstand="1">{req_id}</cwmp:ID></soap-env:Header>
-<soap-env:Body><cwmp:SetParameterValues>
-<ParameterList soap-enc:arrayType="cwmp:ParameterValueStruct[{len(params)}]">
-{body}
-</ParameterList>
-<ParameterKey></ParameterKey>
-</cwmp:SetParameterValues></soap-env:Body>
-</soap-env:Envelope>"""
+    return (
+        f'<?xml version="1.0" encoding="UTF-8"?>'
+        f'<{d.env}:Envelope xmlns:{d.enc}="http://schemas.xmlsoap.org/soap/encoding/" '
+        f'xmlns:{d.env}="http://schemas.xmlsoap.org/soap/envelope/" '
+        f'xmlns:xsd="http://www.w3.org/2001/XMLSchema" '
+        f'xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" '
+        f'xmlns:cwmp="{d.cwmp_ns}">'
+        f'<{d.env}:Header><cwmp:ID {d.env}:mustUnderstand="1">{req_id}</cwmp:ID></{d.env}:Header>'
+        f'<{d.env}:Body><cwmp:SetParameterValues>'
+        f'<ParameterList {d.enc}:arrayType="cwmp:ParameterValueStruct[{len(params)}]">'
+        f'{body}'
+        f'</ParameterList>'
+        f'<ParameterKey></ParameterKey>'
+        f'</cwmp:SetParameterValues></{d.env}:Body>'
+        f'</{d.env}:Envelope>'
+    )
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -335,9 +395,32 @@ def read_http(rf):
             k, _, v = h.decode("latin1").partition(":")
             headers[k.strip().lower()] = v.strip()
         body = b""
-        if "content-length" in headers:
+        if "transfer-encoding" in headers and "chunked" in headers["transfer-encoding"]:
+            chunks = []
+            while True:
+                chunk_header = rf.readline()
+                if not chunk_header: break
+                chunk_len_str = chunk_header.split(b";")[0].strip()
+                try:
+                    chunk_len = int(chunk_len_str, 16)
+                except ValueError:
+                    break
+                if chunk_len == 0:
+                    rf.readline()
+                    break
+                chunk_data = rf.read(chunk_len)
+                chunks.append(chunk_data)
+                rf.read(2)
+            body = b"".join(chunks)
+        elif "content-length" in headers:
             n = int(headers["content-length"])
             body = rf.read(n) if n else b""
+        if body and headers.get("content-encoding") == "gzip":
+            try:
+                import gzip
+                body = gzip.decompress(body)
+            except Exception:
+                pass
         return reqline, headers, body
     except Exception:
         return None
@@ -351,83 +434,117 @@ def extract_fault(body_str):
     param = pn.group(1).strip() if pn else None
     return code, msg, param
 
-def init_task_queue():
-    return [
-        # Stage 1: The primary goal - Enable USB/Network Debugging
-        {
-            "desc": "Enable USBDebugging (Device.JioSTB)",
-            "params": [("Device.JioSTB.USB.USBDebugging", "xsd:boolean", "true")],
-            "is_adb": True,
-            "fallback": {
-                "desc": "Enable USBDebugging (Device.JSTB)",
-                "params": [("Device.JSTB.USB.USBDebugging", "xsd:boolean", "true")],
-                "is_adb": True,
-            }
-        },
-        # Stage 2: Set Validity Date to 2037
-        {
-            "desc": "Set DebugValidityDate to 2037 (Device.JioSTB)",
-            "params": [("Device.JioSTB.USB.DebugValidityDate", "xsd:dateTime", "2037-12-31T23:59:59.000Z")],
-            "is_adb": False,
-            "fallback": {
-                "desc": "Set DebugValidityDate to 2037 (Device.JSTB)",
-                "params": [("Device.JSTB.USB.DebugValidityDate", "xsd:dateTime", "2037-12-31T23:59:59.000Z")],
-                "is_adb": False,
-            }
-        },
-        # Stage 3: Enable FOTA Downgrade
-        {
-            "desc": "Enable FOTA Downgrade",
-            "params": [
-                ("Device.JioSTB.FOTA.DowngradeEnable", "xsd:boolean", "true"),
-                ("Device.JioSTB.FOTA.DowngradeValidityDate", "xsd:dateTime", "2037-12-31T23:59:59.000Z"),
-            ],
-            "is_adb": False,
-            "fallback": {
-                "desc": "Enable FOTA Downgrade (string)",
-                "params": [
-                    ("Device.JioSTB.FOTA.DowngradeEnable", "xsd:string", "true"),
-                    ("Device.JioSTB.FOTA.DowngradeValidityDate", "xsd:dateTime", "2037-12-31T23:59:59.000Z"),
-                ],
-                "is_adb": False,
-            }
-        },
-        # Stage 4: Disable FOTA
-        {
-            "desc": "Disable FOTA (Device.JioSTB)",
-            "params": [
-                ("Device.JioSTB.FOTA.Disable", "xsd:string", "true"),
-            ],
-            "is_adb": False,
-            "fallback": {
-                "desc": "Disable FOTA (boolean)",
-                "params": [
-                    ("Device.JioSTB.FOTA.Disable", "xsd:boolean", "true"),
-                ],
-                "is_adb": False,
-            }
-        }
-    ]
+def parse_parameter_names(xml_str):
+    params = []
+    for m in re.finditer(r'<ParameterInfoStruct>([\s\S]*?)</ParameterInfoStruct>', xml_str):
+        block = m.group(1)
+        name_m = re.search(r'<Name[^>]*>([^<]+)</Name>', block)
+        w_m = re.search(r'<Writable[^>]*>([^<]+)</Writable>', block)
+        if name_m:
+            name = name_m.group(1).strip()
+            w_str = w_m.group(1).strip() if w_m else "0"
+            writable = w_str in ("1", "true", "True")
+            params.append((name, writable))
+    return params
 
-def send_next_task(s, cid, sess):
+def init_task_queue(dialect=None):
+    d = dialect if dialect else SoapDialect()
+    root = d.root
+    q = []
+    # 1. Proactive parameter discovery probe (FerroSTB architecture)
+    q.append({
+        "type": "get_names",
+        "path": f"{root}.",
+        "next_level": True,
+        "desc": f"Discover vendor roots ({root}.)"
+    })
+    q.append({
+        "type": "get_names",
+        "path": f"{root}.JSTB.",
+        "next_level": False,
+        "desc": f"Discover JSTB branch ({root}.JSTB.)"
+    })
+    
+    # 2. Immediate candidates for both JSTB and JioSTB trees
+    candidates = [
+        # Validity dates (2037 formats)
+        (f"{root}.JSTB.USB.DebugValidityDate", "xsd:string", "2037-01-01_00:00:00", False),
+        (f"{root}.JSTB.USB.DebugValidityDate", "xsd:string", "31-12-2037 23:59:59", False),
+        (f"{root}.JSTB.USB.DebugValidityDate", "xsd:dateTime", "2037-12-31T23:59:59.000Z", False),
+        (f"{root}.JioSTB.USB.DebugValidityDate", "xsd:string", "2037-01-01_00:00:00", False),
+        (f"{root}.JioSTB.USB.DebugValidityDate", "xsd:string", "31-12-2037 23:59:59", False),
+        (f"{root}.JioSTB.USB.DebugValidityDate", "xsd:dateTime", "2037-12-31T23:59:59.000Z", False),
+        
+        # USBDebugging flags (boolean & string & int)
+        (f"{root}.JSTB.USB.USBDebugging", "xsd:boolean", "true", True),
+        (f"{root}.JSTB.USB.USBDebugging", "xsd:boolean", "1", True),
+        (f"{root}.JioSTB.USB.USBDebugging", "xsd:boolean", "true", True),
+        (f"{root}.JioSTB.USB.USBDebugging", "xsd:boolean", "1", True),
+        
+        # FOTA Disable
+        (f"{root}.JSTB.FOTA.Disable", "xsd:boolean", "true", False),
+        (f"{root}.JioSTB.FOTA.Disable", "xsd:boolean", "true", False),
+        (f"{root}.JioSTB.FOTA.Disable", "xsd:string", "true", False),
+    ]
+    for name, ptype, val, is_adb in candidates:
+        q.append({
+            "type": "set_param",
+            "name": name,
+            "ptype": ptype,
+            "val": val,
+            "is_adb": is_adb,
+            "desc": f"{name} = {val}"
+        })
+    return q
+
+def _trigger_adb_probe(stb_ip):
+    def _run():
+        try:
+            import time
+            time.sleep(1.0)
+            adb_bin = os.path.join(BASE_DIR, "bin", "adb.exe")
+            if not os.path.exists(adb_bin):
+                adb_bin = "adb"
+            subprocess.run([adb_bin, "connect", f"{stb_ip}:5555"], capture_output=True, timeout=8)
+            if stb_ip != "192.168.50.2":
+                subprocess.run([adb_bin, "connect", "192.168.50.2:5555"], capture_output=True, timeout=5)
+        except Exception:
+            pass
+    threading.Thread(target=_run, daemon=True).start()
+
+def start_parallel_adb_poller(target_ip):
+    def _poll():
+        for _ in range(60):
+            try:
+                with socket.create_connection((target_ip, 5555), timeout=1.0):
+                    log(f"*** [ADB] Port 5555 is OPEN on {target_ip}! Triggering ADB connect... ***", to_stdout=True)
+                    _trigger_adb_probe(target_ip)
+                    return
+            except Exception:
+                time.sleep(1.5)
+    threading.Thread(target=_poll, daemon=True).start()
+
+def send_next_task(s, cid, sess, dialect=None):
+    d = dialect if dialect else sess.get("dialect", SoapDialect())
     if not sess["tasks"]:
-        date_hdr = get_http_date().encode()
         resp_headers = {
-            "Server": "nginx/1.30.1",
-            "Date": date_hdr.decode(),
-            "Connection": "keep-alive"
+            "Server": "GenieACS/1.2.9",
+            "SOAPServer": "GenieACS/1.2.9",
+            "Content-Length": "0",
+            "Connection": "close"
         }
         s.sendall(
             b"HTTP/1.1 204 No Content\r\n"
-            b"Server: nginx/1.30.1\r\n"
-            b"Date: " + date_hdr + b"\r\n"
-            b"Connection: keep-alive\r\n\r\n"
+            b"Server: GenieACS/1.2.9\r\n"
+            b"SOAPServer: GenieACS/1.2.9\r\n"
+            b"Content-Length: 0\r\n"
+            b"Connection: close\r\n\r\n"
         )
         status_msg = "SUCCESS - ADB UNLOCKED!" if sess.get("adb_unlocked") else "FINISHED (ADB status uncertain)"
         log(f"{cid} <<< 204 session closed. Final Status: {status_msg}")
         if sess.get("adb_unlocked"):
             dev_model = sess.get("model", "Jio STB")
-            target_ip = addr[0]
+            target_ip = cid.split(":")[0]
             banner = f"""
 ======================================================================
   🎉🎉🎉 SUCCESS: JIO STB ADB IS FULLY UNLOCKED! 🎉🎉🎉
@@ -447,47 +564,40 @@ def send_next_task(s, cid, sess):
 ======================================================================
 """
             log(banner, to_stdout=True)
-            
-            def _trigger_adb_probe(stb_ip=target_ip):
-                try:
-                    import time
-                    time.sleep(2.0)
-                    import subprocess
-                    adb_bin = os.path.join(BASE_DIR, "bin", "adb.exe")
-                    if not os.path.exists(adb_bin):
-                        adb_bin = "adb"
-                    subprocess.run([adb_bin, "connect", f"{stb_ip}:5555"], capture_output=True, timeout=8)
-                    if stb_ip != "192.168.50.2":
-                        subprocess.run([adb_bin, "connect", "192.168.50.2:5555"], capture_output=True, timeout=5)
-                except Exception:
-                    pass
-            threading.Thread(target=_trigger_adb_probe, daemon=True).start()
+            _trigger_adb_probe(target_ip)
         log_packet("OUTGOING", cid, "HTTP/1.1 204 No Content", resp_headers, None, note=f"CWMP End of Session ({status_msg})")
         return
     
     task = sess["tasks"].pop(0)
     sess["current"] = task
-    cmd_id = "1" + uuid.uuid4().hex[:15]
-    resp_xml = make_set_params_xml(task["params"], cmd_id).encode("utf-8")
-    date_hdr = get_http_date().encode()
+    cmd_id = str(uuid.uuid4().int % 100000)
+    
+    if task.get("type") == "get_names":
+        soap_str = get_param_names_xml(d, cmd_id, task["path"], task["next_level"])
+    elif task.get("type") == "set_param":
+        soap_str = set_single_param_xml(d, cmd_id, task["name"], task["ptype"], task["val"])
+    else:
+        soap_str = make_set_params_xml(task.get("params", []), cmd_id, d)
+        
+    resp_xml = soap_str.encode("utf-8")
     resp_headers = {
-        "Server": "nginx/1.30.1",
-        "Date": date_hdr.decode(),
-        "Content-Type": "text/xml; charset=utf-8",
+        "Server": "GenieACS/1.2.9",
+        "SOAPServer": "GenieACS/1.2.9",
+        "Content-Type": 'text/xml; charset="utf-8"',
         "Content-Length": str(len(resp_xml)),
         "Connection": "keep-alive"
     }
     http_resp = (
         b"HTTP/1.1 200 OK\r\n"
-        b"Server: nginx/1.30.1\r\n"
-        b"Date: " + date_hdr + b"\r\n"
-        b"Content-Type: text/xml; charset=utf-8\r\n"
+        b"Server: GenieACS/1.2.9\r\n"
+        b"SOAPServer: GenieACS/1.2.9\r\n"
+        b"Content-Type: text/xml; charset=\"utf-8\"\r\n"
         b"Content-Length: " + str(len(resp_xml)).encode() + b"\r\n"
         b"Connection: keep-alive\r\n\r\n" + resp_xml
     )
     s.sendall(http_resp)
-    log(f"{cid} <<< SetParameterValues [{task['desc']}] id={cmd_id}")
-    log_packet("OUTGOING", cid, "HTTP/1.1 200 OK", resp_headers, resp_xml, note=f"CWMP RPC SetParameterValues [{task['desc']}]")
+    log(f"{cid} <<< RPC [{task['desc']}] id={cmd_id}")
+    log_packet("OUTGOING", cid, "HTTP/1.1 200 OK", resp_headers, resp_xml, note=f"CWMP RPC [{task['desc']}]")
 
 def handle(conn, addr):
     try:
@@ -500,6 +610,8 @@ def handle(conn, addr):
     try:
         s = ctx.wrap_socket(conn, server_side=True)
         log(f"TLS ok {cid}", to_stdout=is_tr069_port)
+        if is_tr069_port and addr[0] not in ("127.0.0.1", "::1"):
+            start_parallel_adb_poller(addr[0])
     except Exception as e:
         if is_tr069_port:
             log(f"TLS fail {cid}: {type(e).__name__}: {e}", to_stdout=True)
@@ -585,84 +697,29 @@ def handle(conn, addr):
                 log_packet("OUTGOING", cid, "HTTP/1.1 200 OK", resp_headers, body_resp, note="Bootstrap Account Response")
                 continue
             
-            # ---- HTTP DIGEST AUTH CHALLENGE (SMART AUTO-CHALLENGE) ----
-            # BlueBank JMSD200 / newer builds (e.g. 25.1.9) requesting /ftacs-digest require a 401 Digest
-            # challenge before they will complete the CWMP session and send an empty POST.
-            # To prevent infinite 401 loops on non-digest boxes (SDMC, old releases), we track
-            # challenges globally per client IP in a 20-second window.
-            # If the box returns without auth on turn 2 -> fall back immediately to Zero-401 InformResponse!
+            # ---- HTTP DIGEST AUTH CHALLENGE (RELAY ONLY) ----
+            # Real Jio ACS only challenges when online relaying.
+            # IN OFFLINE STANDALONE MODE: ZERO 401 CHALLENGE!
+            # FerroSTB architecture proves 100% reliability with direct 200 OK InformResponse across all models.
             enable_401 = os.environ.get("ENABLE_401_CHALLENGE", "").lower() in ("1", "true", "yes")
-            is_bluebank = any(b in body_str.lower() for b in ["bluebank", "jhsd", "jhsc", "jhsb", "iwedia", "jmsd200"])
-            
-            client_ip = addr[0]
-            with CHALLENGED_LOCK:
-                last_ch = CHALLENGED_IPS.get(client_ip, 0)
-                already_challenged = (time.time() - last_ch) < 20.0
-            
-            should_challenge = False
-            if not has_auth and not already_challenged:
-                if ("/ftacs-digest" in path) or is_bluebank or enable_401:
-                    should_challenge = True
-            
-            if should_challenge and ("cwmp:Inform" in body_str or len(body) > 0):
-                with CHALLENGED_LOCK:
-                    CHALLENGED_IPS[client_ip] = time.time()
-                has_challenged = True
-                relayed_401 = False
-                
-                # VARIANT 1: Try Relay from Real Jio ACS if online
-                if UPSTREAM_ONLINE:
-                    try:
-                        log(f"{cid} [RELAY] Forwarding Inform to Real Jio ACS for genuine 401 challenge...")
-                        status, reason, resp_headers_list, resp_body = forward_to_real_acs("POST", path, headers, body)
-                        if status == 401:
-                            out = [f"HTTP/1.1 {status} {reason}"]
-                            for k, v in resp_headers_list:
-                                if k.lower() in ("transfer-encoding", "connection"): continue
-                                out.append(f"{k}: {v}")
-                            out.append(f"Content-Length: {len(resp_body)}")
-                            out.append("Connection: keep-alive")
-                            challenge_resp = ("\r\n".join(out) + "\r\n\r\n").encode("latin1") + resp_body
-                            s.sendall(challenge_resp)
-                            log(f"{cid} <<< [RELAY] Relayed authentic 401 Digest Challenge from Real Jio ACS")
-                            log_packet("OUTGOING", cid, f"HTTP/1.1 {status} {reason}", dict(resp_headers_list), resp_body, note="Relayed 401 Challenge from Real ACS")
-                            relayed_401 = True
-                            continue
-                    except Exception as e:
-                        log(f"{cid} [WARN] Upstream relay failed ({e}), falling back to local 401 challenge")
-                
-                # VARIANT 2: Offline Standalone Fallback with verified MD5 hash
-                if not relayed_401:
-                    nonce = str(uuid.uuid4())
-                    jsession = uuid.uuid4().hex + ".nvmbdprv126605"
-                    body_401 = b"<html><head><title>Error</title></head><body>Unauthorized</body></html>"
-                    date_hdr = get_http_date().encode()
-                    resp_headers = {
-                        "Server": "nginx/1.30.1",
-                        "Date": date_hdr.decode(),
-                        "Content-Type": "text/html;charset=UTF-8",
-                        "Content-Length": str(len(body_401)),
-                        "Connection": "keep-alive",
-                        "WWW-Authenticate": f'Digest realm="{REALM}", qop="auth", nonce="{nonce}", opaque="{OPAQUE}"',
-                        "X-Powered-By": "Undertow/3",
-                        "Set-Cookie": f"JSESSIONID={jsession}; path=/"
-                    }
-                    challenge_resp = (
-                        b"HTTP/1.1 401 Unauthorized\r\n"
-                        b"Server: nginx/1.30.1\r\n"
-                        b"Date: " + date_hdr + b"\r\n"
-                        b"Content-Type: text/html;charset=UTF-8\r\n"
-                        b"Content-Length: " + str(len(body_401)).encode() + b"\r\n"
-                        b"Connection: keep-alive\r\n"
-                        b'WWW-Authenticate: Digest realm="' + REALM.encode() + b'", qop="auth", nonce="' + nonce.encode() + b'", opaque="' + OPAQUE.encode() + b'"\r\n'
-                        b"X-Powered-By: Undertow/3\r\n"
-                        b"Set-Cookie: JSESSIONID=" + jsession.encode() + b"; path=/\r\n\r\n"
-                        + body_401
-                    )
-                    s.sendall(challenge_resp)
-                    log(f"{cid} <<< [OFFLINE] 401 Digest Challenge (realm={REALM}, nonce={nonce[:8]}..., opaque={OPAQUE[:8]}...)")
-                    log_packet("OUTGOING", cid, "HTTP/1.1 401 Unauthorized", resp_headers, body_401, note="Local Standalone 401 Challenge (Fallback)")
-                    continue
+            if UPSTREAM_ONLINE and enable_401 and not has_auth and ("cwmp:Inform" in body_str or len(body) > 0):
+                try:
+                    log(f"{cid} [RELAY] Forwarding Inform to Real Jio ACS for genuine 401 challenge...")
+                    status, reason, resp_headers_list, resp_body = forward_to_real_acs("POST", path, headers, body)
+                    if status == 401:
+                        out = [f"HTTP/1.1 {status} {reason}"]
+                        for k, v in resp_headers_list:
+                            if k.lower() in ("transfer-encoding", "connection"): continue
+                            out.append(f"{k}: {v}")
+                        out.append(f"Content-Length: {len(resp_body)}")
+                        out.append("Connection: keep-alive")
+                        challenge_resp = ("\r\n".join(out) + "\r\n\r\n").encode("latin1") + resp_body
+                        s.sendall(challenge_resp)
+                        log(f"{cid} <<< [RELAY] Relayed authentic 401 Digest Challenge from Real Jio ACS")
+                        log_packet("OUTGOING", cid, f"HTTP/1.1 {status} {reason}", dict(resp_headers_list), resp_body, note="Relayed 401 Challenge from Real ACS")
+                        continue
+                except Exception as e:
+                    log(f"{cid} [WARN] Upstream relay failed ({e}), falling back to direct Zero-401 InformResponse")
 
             # ---- CWMP: INFORM ----
             if "cwmp:Inform" in body_str:
@@ -674,30 +731,29 @@ def handle(conn, addr):
                 log(f"{cid} [INFORM] Device Info: {dev_desc}")
                 
                 if has_auth:
-                    with CHALLENGED_LOCK:
-                        CHALLENGED_IPS.pop(addr[0], None)
                     auth_params = extract_auth_params(headers.get("authorization", ""))
                     user_str = auth_params.get("username", "unknown")
                     uri_str = auth_params.get("uri", "")
                     nc_str = auth_params.get("nc", "")
                     log(f"{cid} [AUTH] Client authenticated via HTTP Digest: username='{user_str}', uri='{uri_str}', nc={nc_str}")
                 
+                dialect = detect_dialect(body_str)
                 session_id = uuid.uuid4().hex[:16]
-                jsession_cookie = session_id + ".nvmbdprv126605"
                 conn_sess = {
-                    "tasks": init_task_queue(),
+                    "tasks": init_task_queue(dialect),
                     "current": None,
-                    "adb_unlocked": False
+                    "dialect": dialect,
+                    "adb_unlocked": False,
+                    "discovered_branches": set()
                 }
                 with SESSIONS_LOCK:
-                    SESSIONS[jsession_cookie] = conn_sess
                     SESSIONS[session_id] = conn_sess
                     SESSIONS[addr[0]] = conn_sess  # IP fallback for JMSD200 and boxes that drop cookies
                     if cookie:
                         SESSIONS[cookie] = conn_sess
                 
                 relayed_inform = False
-                # VARIANT 1: Try Upstream Inform Relay if online and authenticated (ONLY if explicitly enabled)
+                # Upstream Inform Relay if online and authenticated (ONLY if explicitly enabled)
                 relay_enabled = os.environ.get("ENABLE_UPSTREAM_RELAY", "").lower() in ("1", "true", "yes")
                 if relay_enabled and UPSTREAM_ONLINE and has_auth:
                     try:
@@ -718,32 +774,28 @@ def handle(conn, addr):
                     except Exception as e:
                         log(f"{cid} [WARN] Upstream Inform relay failed ({e}), using local InformResponse fallback")
                 
-                # VARIANT 2: Standalone InformResponse (Undertow/Nginx Format)
+                # Standalone InformResponse (GenieACS 1.2.9 Format)
                 if not relayed_inform:
-                    resp_xml = INFORM_RESPONSE_TEMPLATE.format(ID=req_id).encode("utf-8")
-                    date_hdr = get_http_date().encode()
+                    resp_xml = inform_response_xml(dialect, req_id).encode("utf-8")
                     resp_headers = {
-                        "Server": "nginx/1.30.1",
-                        "Date": date_hdr.decode(),
-                        "Content-Type": "text/xml; charset=utf-8",
+                        "Server": "GenieACS/1.2.9",
+                        "SOAPServer": "GenieACS/1.2.9",
+                        "Content-Type": 'text/xml; charset="utf-8"',
+                        "Set-Cookie": f"session={session_id}; Path=/",
                         "Content-Length": str(len(resp_xml)),
-                        "X-Powered-By": "Undertow/3",
-                        "Set-Cookie": f"JSESSIONID={jsession_cookie}; path=/",
                         "Connection": "keep-alive"
                     }
                     http_resp = (
                         b"HTTP/1.1 200 OK\r\n"
-                        b"Server: nginx/1.30.1\r\n"
-                        b"Date: " + date_hdr + b"\r\n"
-                        b"Content-Type: text/xml; charset=utf-8\r\n"
+                        b"Server: GenieACS/1.2.9\r\n"
+                        b"SOAPServer: GenieACS/1.2.9\r\n"
+                        b"Content-Type: text/xml; charset=\"utf-8\"\r\n"
+                        b"Set-Cookie: session=" + session_id.encode() + b"; Path=/\r\n"
                         b"Content-Length: " + str(len(resp_xml)).encode() + b"\r\n"
-                        b"X-Powered-By: Undertow/3\r\n"
-                        b"Set-Cookie: JSESSIONID=" + jsession_cookie.encode() + b"; path=/\r\n"
-                        b"Set-Cookie: session=" + session_id.encode() + b"; path=/\r\n"
                         b"Connection: keep-alive\r\n\r\n" + resp_xml
                     )
                     s.sendall(http_resp)
-                    log(f"{cid} <<< [STANDALONE] InformResponse [session={session_id[:8]}...]")
+                    log(f"{cid} <<< [STANDALONE] InformResponse (ID={req_id}, root={dialect.root})")
                     log_packet("OUTGOING", cid, "HTTP/1.1 200 OK", resp_headers, resp_xml, note="Local Standalone InformResponse")
                     continue
             
@@ -751,40 +803,38 @@ def handle(conn, addr):
             if "GetRPCMethods" in body_str:
                 m = re.search(r'<cwmp:ID[^>]*>([^<]+)</cwmp:ID>', body_str)
                 rpc_id = m.group(1).strip() if m else "0"
+                dialect = conn_sess.get("dialect") if conn_sess else detect_dialect(body_str)
                 rpc_xml = (
-                    b"<?xml version=\"1.0\" encoding=\"UTF-8\"?>\r\n"
-                    b"<soap-env:Envelope xmlns:soap-enc=\"http://schemas.xmlsoap.org/soap/encoding/\" "
-                    b"xmlns:soap-env=\"http://schemas.xmlsoap.org/soap/envelope/\" "
-                    b"xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\" "
-                    b"xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" "
-                    b"xmlns:cwmp=\"urn:dslforum-org:cwmp-1-0\">\r\n"
-                    b"<soap-env:Header><cwmp:ID soap-env:mustUnderstand=\"1\">" + rpc_id.encode() + b"</cwmp:ID></soap-env:Header>\r\n"
-                    b"<soap-env:Body><cwmp:GetRPCMethodsResponse>\r\n"
-                    b"<MethodList soap-enc:arrayType=\"xsd:string[4]\">\r\n"
-                    b"<string>GetRPCMethods</string>\r\n"
-                    b"<string>SetParameterValues</string>\r\n"
-                    b"<string>GetParameterValues</string>\r\n"
-                    b"<string>Inform</string>\r\n"
-                    b"</MethodList>\r\n"
-                    b"</cwmp:GetRPCMethodsResponse></soap-env:Body>\r\n"
-                    b"</soap-env:Envelope>"
-                )
-                date_hdr = get_http_date().encode()
+                    f"<?xml version=\"1.0\" encoding=\"UTF-8\"?>\r\n"
+                    f"<{dialect.env}:Envelope xmlns:{dialect.enc}=\"http://schemas.xmlsoap.org/soap/encoding/\" "
+                    f"xmlns:{dialect.env}=\"http://schemas.xmlsoap.org/soap/envelope/\" "
+                    f"xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\" "
+                    f"xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" "
+                    f"xmlns:cwmp=\"{dialect.cwmp_ns}\">\r\n"
+                    f"<{dialect.env}:Header><cwmp:ID {dialect.env}:mustUnderstand=\"1\">{rpc_id}</cwmp:ID></{dialect.env}:Header>\r\n"
+                    f"<{dialect.env}:Body><cwmp:GetRPCMethodsResponse>\r\n"
+                    f"<MethodList {dialect.enc}:arrayType=\"xsd:string[4]\">\r\n"
+                    f"<string>GetRPCMethods</string>\r\n"
+                    f"<string>SetParameterValues</string>\r\n"
+                    f"<string>GetParameterValues</string>\r\n"
+                    f"<string>Inform</string>\r\n"
+                    f"</MethodList>\r\n"
+                    f"</cwmp:GetRPCMethodsResponse></{dialect.env}:Body>\r\n"
+                    f"</{dialect.env}:Envelope>"
+                ).encode("utf-8")
                 resp_headers = {
-                    "Server": "nginx/1.30.1",
-                    "Date": date_hdr.decode(),
-                    "Content-Type": "text/xml; charset=utf-8",
+                    "Server": "GenieACS/1.2.9",
+                    "SOAPServer": "GenieACS/1.2.9",
+                    "Content-Type": 'text/xml; charset="utf-8"',
                     "Content-Length": str(len(rpc_xml)),
-                    "X-Powered-By": "Undertow/3",
                     "Connection": "keep-alive"
                 }
                 http_resp = (
                     b"HTTP/1.1 200 OK\r\n"
-                    b"Server: nginx/1.30.1\r\n"
-                    b"Date: " + date_hdr + b"\r\n"
-                    b"Content-Type: text/xml; charset=utf-8\r\n"
+                    b"Server: GenieACS/1.2.9\r\n"
+                    b"SOAPServer: GenieACS/1.2.9\r\n"
+                    b"Content-Type: text/xml; charset=\"utf-8\"\r\n"
                     b"Content-Length: " + str(len(rpc_xml)).encode() + b"\r\n"
-                    b"X-Powered-By: Undertow/3\r\n"
                     b"Connection: keep-alive\r\n\r\n" + rpc_xml
                 )
                 s.sendall(http_resp)
@@ -793,19 +843,19 @@ def handle(conn, addr):
                 continue
             
             # ---- CWMP: STATE MACHINE & SESSION HIJACK ----
-            # Match session: by Cookie (SDMC/GenieACS style), connection session, or IP (JMSD200 style)
+            # Match session: by Cookie (GenieACS session style), connection session, or IP (JMSD200 style)
             sess = SESSIONS.get(cookie) if cookie else conn_sess
             if not sess and addr[0] in SESSIONS:
                 sess = SESSIONS[addr[0]]
             if sess:
+                dialect = sess.get("dialect", SoapDialect())
                 # Empty POST from CPE indicates ACS turn -> HIJACK POINT!
-                # Even if handshake was relayed from Real ACS, we drop Real ACS here and inject our local ADB unlock commands!
                 if len(body) == 0:
-                    log(f"{cid} [HIJACK POINT] STB ready for commands -> Injecting local SetParameterValues (USBDebugging=true)")
-                    send_next_task(s, cid, sess)
+                    log(f"{cid} [HIJACK POINT] STB ready for commands -> Injecting local CWMP RPC queue")
+                    send_next_task(s, cid, sess, dialect)
                     continue
                 
-                # Handle Response to previous SetParameterValues
+                # Handle Response to previous RPC
                 current = sess.get("current")
                 if "SetParameterValuesResponse" in body_str:
                     if current and current.get("is_adb"):
@@ -813,6 +863,29 @@ def handle(conn, addr):
                         log(f"{cid} *** SUCCESS! STB ACCEPTED {current['desc']}! ADB IS FULLY UNLOCKED! ***")
                     else:
                         log(f"{cid} [OK] STB accepted: {current['desc'] if current else 'task'}")
+                elif "GetParameterNamesResponse" in body_str:
+                    params = parse_parameter_names(body_str)
+                    log(f"{cid} [DISCOVERY] STB returned {len(params)} parameter paths:")
+                    discovered = sess.setdefault("discovered_branches", set())
+                    new_actions = []
+                    for name, writable in params:
+                        log(f"{cid}   -> {name} (writable={writable})")
+                        low = name.lower()
+                        if name.endswith('.'):
+                            if any(k in low for k in ["jstb", "jio", "usb", "fota", "debug", "stb", "x_"]) and name not in discovered:
+                                discovered.add(name)
+                                new_actions.append({"type": "get_names", "path": name, "next_level": False, "desc": f"Sub-tree ({name})"})
+                        else:
+                            if "debug" in low and "date" in low:
+                                new_actions.append({"type": "set_param", "name": name, "ptype": "xsd:string", "val": "2037-01-01_00:00:00", "is_adb": False, "desc": f"Discovered {name}"})
+                                new_actions.append({"type": "set_param", "name": name, "ptype": "xsd:string", "val": "31-12-2037 23:59:59", "is_adb": False, "desc": f"Discovered {name}"})
+                            elif "usbdebugging" in low or ("adb" in low and writable):
+                                new_actions.append({"type": "set_param", "name": name, "ptype": "xsd:boolean", "val": "true", "is_adb": True, "desc": f"Discovered {name}"})
+                                new_actions.append({"type": "set_param", "name": name, "ptype": "xsd:boolean", "val": "1", "is_adb": True, "desc": f"Discovered {name}"})
+                            elif "fota" in low and "disable" in low:
+                                new_actions.append({"type": "set_param", "name": name, "ptype": "xsd:boolean", "val": "true", "is_adb": False, "desc": f"Discovered {name}"})
+                    for a in reversed(new_actions):
+                        sess["tasks"].insert(0, a)
                 else:
                     # SOAP Fault or error
                     code, msg, param = extract_fault(body_str)
@@ -822,29 +895,24 @@ def handle(conn, addr):
                     if code == "9005" and "FOTA.Disable" in (param or ""):
                         log(f"{cid} [NOTE] Device.JioSTB.FOTA.Disable is not in this model's schema (e.g. SDMC JHS C200).")
                         log(f"{cid} [NOTE] Normal and safe! ADB is already unlocked; disable FOTA packages via ADB commands.")
-                    
-                    # Try fallback if defined (only if fault wasn't 9005 'Invalid parameter name')
-                    if current and current.get("fallback") and code != "9005":
-                        fb = current["fallback"]
-                        log(f"{cid} -> Queuing fallback: {fb['desc']}")
-                        sess["tasks"].insert(0, fb)
                 
                 # Proceed to next task in session
-                send_next_task(s, cid, sess)
+                send_next_task(s, cid, sess, dialect)
                 continue
             
             # ---- Unknown / Empty POST without active session ----
-            date_hdr = get_http_date().encode()
             resp_headers = {
-                "Server": "nginx/1.30.1",
-                "Date": date_hdr.decode(),
-                "Connection": "keep-alive"
+                "Server": "GenieACS/1.2.9",
+                "SOAPServer": "GenieACS/1.2.9",
+                "Content-Length": "0",
+                "Connection": "close"
             }
             s.sendall(
                 b"HTTP/1.1 204 No Content\r\n"
-                b"Server: nginx/1.30.1\r\n"
-                b"Date: " + date_hdr + b"\r\n"
-                b"Connection: keep-alive\r\n\r\n"
+                b"Server: GenieACS/1.2.9\r\n"
+                b"SOAPServer: GenieACS/1.2.9\r\n"
+                b"Content-Length: 0\r\n"
+                b"Connection: close\r\n\r\n"
             )
             log(f"{cid} <<< 204 No Content (untracked session)", to_stdout=is_tr069_port)
             log_packet("OUTGOING", cid, "HTTP/1.1 204 No Content", resp_headers, None, note="204 Untracked Session")

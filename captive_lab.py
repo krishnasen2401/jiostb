@@ -95,10 +95,7 @@ def local_dns_answer(query, client_ip):
             except: pass
             header = struct.pack("!HHHHHH", query_id, flags, 1, answer_count, 0, 0)
             return header + query[12:question_end] + answer
-        elif "google" in name:
-            resolved = FAKE_GOOGLE_IP
-        else:
-            resolved = SERVICE_ADDRESS
+        resolved = SERVICE_ADDRESS
         ip_bytes = socket.inet_aton(resolved)
         answer = b"\xc0\x0c" + struct.pack("!HHIH", 1, 1, 30, len(ip_bytes)) + ip_bytes
         answer_count = 1
@@ -375,6 +372,13 @@ def main():
     threads.append(threading.Thread(target=dhcp_loop, args=(dhcp,), daemon=True))
 
     # 4. NTP Server
+    # Ensure Windows Time service does not hold port 123
+    try:
+        import subprocess
+        subprocess.run(["net", "stop", "w32time"], capture_output=True, timeout=5)
+    except Exception:
+        pass
+
     ntp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     ntp.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     ntp_bound = False
