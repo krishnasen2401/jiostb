@@ -63,7 +63,8 @@ if (Test-Path (Join-Path $base 'captive-lab.pid')) {
 }
 
 Write-Host "Stopping Windows Time Service (w32time) to free Port 123..."
-Stop-Service w32time -ErrorAction SilentlyContinue
+Stop-Service w32time -Force -ErrorAction SilentlyContinue
+Set-Service w32time -StartupType Disabled -ErrorAction SilentlyContinue
 
 Write-Host "Stopping Windows Mobile Hotspot / ICS service (SharedAccess) to free Port 53..."
 Stop-Service -Name "SharedAccess" -Force -ErrorAction SilentlyContinue

@@ -42,6 +42,10 @@ CLIENT_ADDRESS = "192.168.50.2"
 SUBNET_MASK = "255.255.255.0"
 _running = threading.Event()
 _running.set()
+NTP_BOUND = False
+
+def get_http_date():
+    return time.strftime("%a, %d %b %Y %H:%M:%S GMT", time.gmtime())
 
 def decode_name(packet, offset):
     labels = []
@@ -80,6 +84,19 @@ def local_dns_answer(query, client_ip):
     answer_count = 0
     
     if qtype == 1 and qclass == 1:
+        low_name = name.lower()
+        if ("ntp" in low_name or "time." in low_name or "pool" in low_name) and not NTP_BOUND:
+            # NTP port 123 is not bound locally. Do not blackhole NTP queries to 192.168.50.1!
+            # Return empty response (NODATA) so client doesn't waste time on unreachable local port 123
+            msg = f"[DNS] {client_ip} queried NTP: {name} -> NODATA (NTP server unbound locally, avoiding blackhole)"
+            print(msg, flush=True)
+            try:
+                with open(BASE / "captive_lab.log", "a", encoding="utf-8") as lf:
+                    lf.write(f"[{time.strftime('%H:%M:%S')}] {msg}\n")
+            except: pass
+            header = struct.pack("!HHHHHH", query_id, flags, 1, 0, 0, 0)
+            return header + query[12:question_end]
+
         if "acs.oss.jio.com" in name:
             # Single Direct DNS Answer: route directly to PC service IP (192.168.50.1)
             # Avoids duplicate simultaneous TCP sockets and CWMP session race conditions
@@ -229,13 +246,19 @@ def ntp_loop(sock):
                 packet[32:40] = ntp_ts
                 packet[40:48] = ntp_ts
                 sock.sendto(packet, addr)
-                print(f"NTP Request answered for {addr[0]} (synced to active cert epoch 2026)", flush=True)
+                msg = f"[NTP] Request answered for {addr[0]} (synced clock to active cert epoch {time.strftime('%Y-%m-%d', time.gmtime(target_epoch))})"
+                print(msg, flush=True)
+                try:
+                    with open(BASE / "captive_lab.log", "a", encoding="utf-8") as lf:
+                        lf.write(f"[{time.strftime('%H:%M:%S')}] {msg}\n")
+                except: pass
         except socket.timeout: continue
         except: pass
 
 def handle_http_portal(conn, addr):
     try:
         data = conn.recv(1024)
+        date_hdr = get_http_date()
         if data:
             req_line = data.decode('latin1', errors='ignore').split('\r\n')[0]
             if "network/check" in req_line:
@@ -243,6 +266,7 @@ def handle_http_portal(conn, addr):
                 body = f'{{"Network":"{token}"}}'.encode("utf-8")
                 resp = (
                     b"HTTP/1.1 200 OK\r\n"
+                    b"Date: " + date_hdr.encode("ascii") + b"\r\n"
                     b"Content-Type: application/json\r\n"
                     b"Content-Length: " + str(len(body)).encode("ascii") + b"\r\n"
                     b"Connection: close\r\n\r\n" + body
@@ -256,13 +280,19 @@ def handle_http_portal(conn, addr):
                 except: pass
                 return
             
-            msg = f"[PORTAL] {addr[0]} >>> {req_line} -> returning HTTP 204"
+            msg = f"[PORTAL] {addr[0]} >>> {req_line} -> returning HTTP 204 (Date: {date_hdr})"
             print(msg, flush=True)
             try:
                 with open(BASE / "captive_lab.log", "a", encoding="utf-8") as lf:
                     lf.write(f"[{time.strftime('%H:%M:%S')}] {msg}\n")
             except: pass
-        resp = b"HTTP/1.1 204 No Content\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+        # Provide RFC 1123 Date header so Android's NetworkTimeUpdateService immediately syncs time via HTTP Time Suggestion
+        resp = (
+            b"HTTP/1.1 204 No Content\r\n"
+            b"Date: " + date_hdr.encode("ascii") + b"\r\n"
+            b"Content-Length: 0\r\n"
+            b"Connection: close\r\n\r\n"
+        )
         conn.sendall(resp)
     except: pass
     finally:
@@ -375,25 +405,27 @@ def main():
     # Ensure Windows Time service does not hold port 123
     try:
         import subprocess
-        subprocess.run(["net", "stop", "w32time"], capture_output=True, timeout=5)
+        subprocess.run(["sc", "stop", "w32time"], capture_output=True, timeout=5)
+        subprocess.run(["net", "stop", "w32time", "/y"], capture_output=True, timeout=5)
     except Exception:
         pass
 
+    global NTP_BOUND
     ntp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     ntp.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    ntp_bound = False
+    NTP_BOUND = False
     try:
         ntp.bind(('0.0.0.0', 123))
-        ntp_bound = True
+        NTP_BOUND = True
     except (PermissionError, OSError) as e:
         print(f"[!] Warning: Cannot bind 0.0.0.0:123 ({e}). Retrying on {SERVICE_ADDRESS}:123...", flush=True)
         try:
             ntp.bind((SERVICE_ADDRESS, 123))
-            ntp_bound = True
+            NTP_BOUND = True
         except (PermissionError, OSError):
-            print(f"[!] Warning: NTP port 123 unavailable (W32Time in use). Continuing without local NTP responder...", flush=True)
+            print(f"[!] Warning: NTP port 123 unavailable (W32Time in use). HTTP 204 Date header will provide time sync...", flush=True)
             ntp = None
-    if ntp and ntp_bound:
+    if ntp and NTP_BOUND:
         ntp.settimeout(1.0)
         threads.append(threading.Thread(target=ntp_loop, args=(ntp,), daemon=True))
 
@@ -405,7 +437,7 @@ def main():
     for t in threads: t.start()
     print("Server is ready. Waiting for STB...", flush=True)
     print(">>> NOW POWER-CYCLE (REBOOT) THE JIO STB: Unplug power from back, wait 5s, plug back in! <<<", flush=True)
-    print(">>> NOTE: If STB loops on /generate_204 or fails TLS, Factory Reset the STB to clear backoff! <<<", flush=True)
+    print(">>> (No Factory Reset needed! Both fresh and existing setups supported seamlessly) <<<", flush=True)
     try:
         while any(t.is_alive() for t in threads): 
             for t in threads: t.join(timeout=0.5)

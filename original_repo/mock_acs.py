@@ -204,13 +204,13 @@ def handle(conn, addr):
                 date_hdr = get_http_date().encode()
                 http_resp = (
                     b"HTTP/1.1 200 OK\r\n"
+                    b"Server: nginx/1.30.1\r\n"
                     b"Date: " + date_hdr + b"\r\n"
                     b"Content-Type: text/xml; charset=utf-8\r\n"
                     b"Content-Length: " + str(len(resp_xml)).encode() + b"\r\n"
+                    b"X-Powered-By: Undertow/3\r\n"
                     b"Set-Cookie: JSESSIONID=" + session_id.encode() + b"; Path=/\r\n"
                     b"Set-Cookie: session=" + session_id.encode() + b"; Path=/\r\n"
-                    b"Server: GenieACS/1.2.9\r\n"
-                    b"SOAPServer: GenieACS/1.2.9\r\n"
                     b"Connection: keep-alive\r\n\r\n" + resp_xml
                 )
                 s.sendall(http_resp)
@@ -229,11 +229,11 @@ def handle(conn, addr):
                     date_hdr = get_http_date().encode()
                     http_resp = (
                         b"HTTP/1.1 200 OK\r\n"
+                        b"Server: nginx/1.30.1\r\n"
                         b"Date: " + date_hdr + b"\r\n"
                         b"Content-Type: text/xml; charset=utf-8\r\n"
                         b"Content-Length: " + str(len(resp_xml)).encode() + b"\r\n"
-                        b"Server: GenieACS/1.2.9\r\n"
-                        b"SOAPServer: GenieACS/1.2.9\r\n"
+                        b"X-Powered-By: Undertow/3\r\n"
                         b"Connection: keep-alive\r\n\r\n" + resp_xml
                     )
                     s.sendall(http_resp)

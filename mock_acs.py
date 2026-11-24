@@ -582,18 +582,19 @@ def start_parallel_adb_poller(target_ip):
 def send_next_task(s, cid, sess, dialect=None):
     d = dialect if dialect else sess.get("dialect", SoapDialect())
     if not sess["tasks"]:
+        date_hdr = get_http_date()
         resp_headers = {
-            "Server": "GenieACS/1.2.9",
-            "SOAPServer": "GenieACS/1.2.9",
+            "Server": "nginx/1.30.1",
+            "Date": date_hdr,
             "Content-Length": "0",
-            "Connection": "close"
+            "Connection": "keep-alive"
         }
         s.sendall(
             b"HTTP/1.1 204 No Content\r\n"
-            b"Server: GenieACS/1.2.9\r\n"
-            b"SOAPServer: GenieACS/1.2.9\r\n"
+            b"Server: nginx/1.30.1\r\n"
+            b"Date: " + date_hdr.encode() + b"\r\n"
             b"Content-Length: 0\r\n"
-            b"Connection: close\r\n\r\n"
+            b"Connection: keep-alive\r\n\r\n"
         )
         status_msg = "SUCCESS - ADB UNLOCKED!" if sess.get("adb_unlocked") else "FINISHED (ADB status uncertain)"
         log(f"{cid} <<< 204 session closed. Final Status: {status_msg}")
@@ -637,20 +638,20 @@ def send_next_task(s, cid, sess, dialect=None):
     resp_xml = soap_str.encode("utf-8")
     date_hdr = get_http_date()
     resp_headers = {
+        "Server": "nginx/1.30.1",
         "Date": date_hdr,
-        "Server": "GenieACS/1.2.9",
-        "SOAPServer": "GenieACS/1.2.9",
         "Content-Type": "text/xml; charset=utf-8",
         "Content-Length": str(len(resp_xml)),
+        "X-Powered-By": "Undertow/3",
         "Connection": "keep-alive"
     }
     http_resp = (
         b"HTTP/1.1 200 OK\r\n"
+        b"Server: nginx/1.30.1\r\n"
         b"Date: " + date_hdr.encode() + b"\r\n"
-        b"Server: GenieACS/1.2.9\r\n"
-        b"SOAPServer: GenieACS/1.2.9\r\n"
         b"Content-Type: text/xml; charset=utf-8\r\n"
         b"Content-Length: " + str(len(resp_xml)).encode() + b"\r\n"
+        b"X-Powered-By: Undertow/3\r\n"
         b"Connection: keep-alive\r\n\r\n" + resp_xml
     )
     s.sendall(http_resp)
@@ -841,28 +842,28 @@ def handle(conn, addr):
                     except Exception as e:
                         log(f"{cid} [WARN] Upstream Inform relay failed ({e}), using local InformResponse fallback")
                 
-                # Standalone InformResponse (GenieACS 1.2.9 + Undertow Dual Format)
+                # Standalone InformResponse (Undertow/Nginx Format)
                 if not relayed_inform:
                     resp_xml = inform_response_xml(dialect, req_id).encode("utf-8")
                     date_hdr = get_http_date()
                     resp_headers = {
+                        "Server": "nginx/1.30.1",
                         "Date": date_hdr,
-                        "Server": "GenieACS/1.2.9",
-                        "SOAPServer": "GenieACS/1.2.9",
                         "Content-Type": "text/xml; charset=utf-8",
-                        "Set-Cookie": f"JSESSIONID={jsession}; path=/, session={session_id}; Path=/",
                         "Content-Length": str(len(resp_xml)),
+                        "X-Powered-By": "Undertow/3",
+                        "Set-Cookie": f"JSESSIONID={jsession}; path=/",
                         "Connection": "keep-alive"
                     }
                     http_resp = (
                         b"HTTP/1.1 200 OK\r\n"
+                        b"Server: nginx/1.30.1\r\n"
                         b"Date: " + date_hdr.encode() + b"\r\n"
-                        b"Server: GenieACS/1.2.9\r\n"
-                        b"SOAPServer: GenieACS/1.2.9\r\n"
                         b"Content-Type: text/xml; charset=utf-8\r\n"
-                        b"Set-Cookie: JSESSIONID=" + jsession.encode() + b"; path=/\r\n"
-                        b"Set-Cookie: session=" + session_id.encode() + b"; Path=/\r\n"
                         b"Content-Length: " + str(len(resp_xml)).encode() + b"\r\n"
+                        b"X-Powered-By: Undertow/3\r\n"
+                        b"Set-Cookie: JSESSIONID=" + jsession.encode() + b"; path=/\r\n"
+                        b"Set-Cookie: session=" + session_id.encode() + b"; path=/\r\n"
                         b"Connection: keep-alive\r\n\r\n" + resp_xml
                     )
                     s.sendall(http_resp)
@@ -895,20 +896,20 @@ def handle(conn, addr):
                 ).encode("utf-8")
                 date_hdr = get_http_date()
                 resp_headers = {
+                    "Server": "nginx/1.30.1",
                     "Date": date_hdr,
-                    "Server": "GenieACS/1.2.9",
-                    "SOAPServer": "GenieACS/1.2.9",
                     "Content-Type": "text/xml; charset=utf-8",
                     "Content-Length": str(len(rpc_xml)),
+                    "X-Powered-By": "Undertow/3",
                     "Connection": "keep-alive"
                 }
                 http_resp = (
                     b"HTTP/1.1 200 OK\r\n"
+                    b"Server: nginx/1.30.1\r\n"
                     b"Date: " + date_hdr.encode() + b"\r\n"
-                    b"Server: GenieACS/1.2.9\r\n"
-                    b"SOAPServer: GenieACS/1.2.9\r\n"
                     b"Content-Type: text/xml; charset=utf-8\r\n"
                     b"Content-Length: " + str(len(rpc_xml)).encode() + b"\r\n"
+                    b"X-Powered-By: Undertow/3\r\n"
                     b"Connection: keep-alive\r\n\r\n" + rpc_xml
                 )
                 s.sendall(http_resp)
@@ -975,18 +976,19 @@ def handle(conn, addr):
                 continue
             
             # ---- Unknown / Empty POST without active session ----
+            date_hdr = get_http_date()
             resp_headers = {
-                "Server": "GenieACS/1.2.9",
-                "SOAPServer": "GenieACS/1.2.9",
+                "Server": "nginx/1.30.1",
+                "Date": date_hdr,
                 "Content-Length": "0",
-                "Connection": "close"
+                "Connection": "keep-alive"
             }
             s.sendall(
                 b"HTTP/1.1 204 No Content\r\n"
-                b"Server: GenieACS/1.2.9\r\n"
-                b"SOAPServer: GenieACS/1.2.9\r\n"
+                b"Server: nginx/1.30.1\r\n"
+                b"Date: " + date_hdr.encode() + b"\r\n"
                 b"Content-Length: 0\r\n"
-                b"Connection: close\r\n\r\n"
+                b"Connection: keep-alive\r\n\r\n"
             )
             log(f"{cid} <<< 204 No Content (untracked session)", to_stdout=is_tr069_port)
             log_packet("OUTGOING", cid, "HTTP/1.1 204 No Content", resp_headers, None, note="204 Untracked Session")
